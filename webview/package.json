@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@xyflow/react": "^12.10.1",
+    "aria-vscode": "file:..",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.576.0",
@@ -24,13 +25,13 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
+    "@eslint/js": "^9.39.0",
     "@tailwindcss/vite": "^4.2.1",
     "@types/node": "^25.3.3",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
-    "eslint": "^10.0.2",
+    "eslint": "^9.39.0",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
