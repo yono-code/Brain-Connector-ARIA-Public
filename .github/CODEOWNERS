@@ -1,0 +1,8 @@
+# Default code owners (security hardening)
+* @yono-code @yonogames-dev
+
+# High-risk paths
+.github/workflows/* @yono-code @yonogames-dev
+scripts/* @yono-code @yonogames-dev
+src/* @yono-code @yonogames-dev
+webview/* @yono-code @yonogames-dev

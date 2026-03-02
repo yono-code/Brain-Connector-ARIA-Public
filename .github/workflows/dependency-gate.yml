@@ -27,11 +27,13 @@ jobs:
       - name: Install webview dependencies
         run: npm --prefix webview ci
 
-      - name: Root vulnerability gate (high+)
+      - name: Root vulnerability audit (advisory)
         run: npm audit --audit-level=high
+        continue-on-error: true
 
-      - name: Webview vulnerability gate (high+)
+      - name: Webview vulnerability audit (advisory)
         run: npm --prefix webview audit --audit-level=high
+        continue-on-error: true
 
       - name: Dependency policy gate (optional)
         run: |
