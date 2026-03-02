@@ -1,0 +1,21 @@
+# Public export guardrails (used by `git archive`)
+# Files/directories marked with `export-ignore` are excluded from public snapshot archives.
+
+# Internal AI operations and planning assets
+ai_shared/ export-ignore
+.claude/ export-ignore
+
+# Internal design source documents
+docs/ export-ignore
+
+# Internal release artifacts and evidence
+release/ export-ignore
+artifacts/ export-ignore
+
+# Local editor settings
+.vscode/ export-ignore
+
+# Internal agent guidance documents
+CLAUDE.md export-ignore
+DEVELOPMENT_PHILOSOPHY.md export-ignore
+PUBLIC_REPO_PREP.md export-ignore

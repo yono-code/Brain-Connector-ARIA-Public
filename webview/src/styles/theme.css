@@ -1,0 +1,29 @@
+/* VS Code テーマ変数で shadcn/ui のデフォルト変数を上書きする */
+:root {
+  --background: var(--vscode-editor-background, #1e1e1e);
+  --foreground: var(--vscode-editor-foreground, #d4d4d4);
+  --border: var(--vscode-panel-border, #454545);
+  --ring: var(--vscode-focusBorder, #007acc);
+  --muted: var(--vscode-sideBar-background, #252526);
+  --muted-foreground: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+/* React Flow のキャンバス背景をテーマに合わせる */
+.react-flow__background {
+  background: var(--vscode-editor-background, #1e1e1e) !important;
+}
+
+.react-flow__controls {
+  background: var(--vscode-sideBar-background, #252526) !important;
+  border-color: var(--vscode-panel-border, #454545) !important;
+}
+
+.react-flow__controls-button {
+  background: var(--vscode-sideBar-background, #252526) !important;
+  border-color: var(--vscode-panel-border, #454545) !important;
+  fill: var(--vscode-editor-foreground, #d4d4d4) !important;
+}
+
+.react-flow__minimap {
+  background: var(--vscode-sideBar-background, #252526) !important;
+}
