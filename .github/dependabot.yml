@@ -4,7 +4,6 @@ updates:
     directory: "/"
     schedule:
       interval: "monthly"
-      day: "first-monday"
       time: "03:00"
       timezone: "Asia/Tokyo"
     open-pull-requests-limit: 1
@@ -22,7 +21,6 @@ updates:
     directory: "/webview"
     schedule:
       interval: "monthly"
-      day: "first-monday"
       time: "03:10"
       timezone: "Asia/Tokyo"
     open-pull-requests-limit: 1
