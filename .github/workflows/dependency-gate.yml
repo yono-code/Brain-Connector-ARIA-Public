@@ -1,0 +1,54 @@
+name: dependency-gate
+
+on:
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  dependency-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            webview/package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install webview dependencies
+        run: npm --prefix webview ci
+
+      - name: Root vulnerability gate (high+)
+        run: npm audit --audit-level=high
+
+      - name: Webview vulnerability gate (high+)
+        run: npm --prefix webview audit --audit-level=high
+
+      - name: Dependency policy gate (optional)
+        run: |
+          if [ -f "ai_shared/reviews/dependency-policy.md" ] && [ -f "ai_shared/reviews/dependency-exceptions.md" ]; then
+            npm run dependency:gate
+          else
+            echo "Skip dependency policy gate: policy files not found."
+          fi
+
+      - name: No-network code guard
+        run: npm run no-network:guard
+
+      - name: Generate SBOM (SPDX)
+        run: npm run dependency:sbom
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-spdx
+          path: artifacts/sbom.spdx.json

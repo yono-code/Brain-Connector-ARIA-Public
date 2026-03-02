@@ -1,0 +1,135 @@
+{
+  "name": "aria-vscode",
+  "displayName": "Brain Connector ARIA",
+  "description": "Automatically generate AI-ready context (Markdown/Mermaid) just by managing your project in the GUI.",
+  "version": "0.1.0",
+  "publisher": "aria-dev",
+  "license": "Apache-2.0",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Notebooks",
+    "Visualization"
+  ],
+  "keywords": [
+    "ai",
+    "project management",
+    "markdown",
+    "mermaid",
+    "react flow",
+    "kanban",
+    "c4 model",
+    "adr",
+    "context",
+    "llm",
+    "architecture"
+  ],
+  "galleryBanner": {
+    "color": "#1e1e2e",
+    "theme": "dark"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yono-code/Brain-Connector-ARIA-Public.git"
+  },
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "aria.openPanel",
+        "title": "Brain Connector ARIA: Open Panel",
+        "category": "Brain Connector ARIA",
+        "icon": "$(project)"
+      },
+      {
+        "command": "aria.openRuleGuide",
+        "title": "Brain Connector ARIA: Open Rule Guide",
+        "category": "Brain Connector ARIA"
+      },
+      {
+        "command": "aria.addTask",
+        "title": "Brain Connector ARIA: Add Task",
+        "category": "Brain Connector ARIA"
+      },
+      {
+        "command": "aria.syncNow",
+        "title": "Brain Connector ARIA: Sync Now (Force)",
+        "category": "Brain Connector ARIA"
+      },
+      {
+        "command": "aria.revokeConsent",
+        "title": "Brain Connector ARIA: Revoke Consent",
+        "category": "Brain Connector ARIA"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "aria.addTask",
+        "key": "ctrl+n",
+        "when": "activeWebviewPanelId == 'ariaPanel'"
+      },
+      {
+        "command": "aria.openPanel",
+        "key": "ctrl+shift+a",
+        "mac": "cmd+shift+a",
+        "when": "!terminalFocus"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "aria.openPanel"
+        },
+        {
+          "command": "aria.openRuleGuide"
+        },
+        {
+          "command": "aria.syncNow"
+        },
+        {
+          "command": "aria.revokeConsent"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Brain Connector ARIA",
+      "properties": {
+        "aria.locale": {
+          "type": "string",
+          "default": "auto",
+          "enum": [
+            "auto",
+            "en",
+            "ja"
+          ],
+          "description": "UI language for Brain Connector ARIA. \"auto\" follows VS Code display language."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build:all",
+    "build:extension": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node",
+    "build:webview": "cd webview && npm run build",
+    "build:all": "npm run build:extension && npm run build:webview",
+    "watch:extension": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --watch",
+    "watch:webview": "cd webview && npm run dev",
+    "dev": "concurrently \"npm run watch:extension\" \"npm run watch:webview\"",
+    "test": "vitest run",
+    "dependency:gate": "node scripts/check-dependency-gate.cjs",
+    "no-network:guard": "node scripts/check-no-network-code.cjs",
+    "dependency:sbom": "node scripts/generate-sbom.cjs",
+    "dependency:review": "node scripts/generate-dependency-review.cjs"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "concurrently": "^9.0.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.0.0",
+    "vitest": "^4.0.18"
+  }
+}

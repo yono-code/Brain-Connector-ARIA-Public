@@ -1,0 +1,13 @@
+node_modules/
+dist/
+webview/node_modules/
+webview/dist/
+*.vsix
+.ai-context/
+.claude/
+artifacts/
+release/
+nul
+extglob/
+.vscode/
+docs/mindmap-local/

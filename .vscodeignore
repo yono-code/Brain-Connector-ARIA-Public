@@ -1,0 +1,50 @@
+# ソースコード（dist/ のみ含める）
+src/
+webview/src/
+webview/public/
+webview/index.html
+webview/vite.config.ts
+webview/package.json
+webview/package-lock.json
+webview/tsconfig.json
+webview/tsconfig.app.json
+webview/tsconfig.node.json
+webview/node_modules/
+webview/.gitignore
+webview/README.md
+webview/components.json
+webview/eslint.config.js
+
+# ビルド設定
+.vscode/launch.json
+.vscode/tasks.json
+tsconfig.json
+esbuild.js
+build-extension.mjs
+
+# Claude Code 設定ファイル
+.claude/
+
+# テスト
+**/*.test.ts
+**/*.spec.ts
+test/
+
+# プロジェクト管理ドキュメント（AI向け・開発内部）
+ai_shared/
+DEVELOPMENT_PHILOSOPHY.md
+CLAUDE.md
+docs/
+*.docx
+
+# assets の説明ファイル（アイコン画像は含める）
+assets/README.md
+
+# その他
+node_modules/
+.git/
+.gitignore
+*.vsix
+**/*.map
+extglob
+nul
