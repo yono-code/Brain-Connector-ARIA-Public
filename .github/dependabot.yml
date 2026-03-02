@@ -3,25 +3,35 @@ updates:
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: "monthly"
+      day: "first-monday"
       time: "03:00"
-    open-pull-requests-limit: 10
+      timezone: "Asia/Tokyo"
+    open-pull-requests-limit: 1
     labels:
       - "dependencies"
       - "security"
     commit-message:
       prefix: "deps(root)"
+    groups:
+      root-monthly:
+        patterns:
+          - "*"
 
   - package-ecosystem: "npm"
     directory: "/webview"
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "03:30"
-    open-pull-requests-limit: 10
+      interval: "monthly"
+      day: "first-monday"
+      time: "03:10"
+      timezone: "Asia/Tokyo"
+    open-pull-requests-limit: 1
     labels:
       - "dependencies"
       - "security"
     commit-message:
       prefix: "deps(webview)"
+    groups:
+      webview-monthly:
+        patterns:
+          - "*"
