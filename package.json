@@ -125,7 +125,7 @@
     "dependency:review": "node scripts/generate-dependency-review.cjs"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
+    "@types/node": "^25.3.3",
     "@types/vscode": "^1.85.0",
     "concurrently": "^9.0.0",
     "esbuild": "^0.25.0",
