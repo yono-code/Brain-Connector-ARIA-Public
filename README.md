@@ -94,7 +94,7 @@ Found a bug or have a feature request? Please open an issue on [GitHub](https://
 
 For legal/security/private reports, use the private channel:
 
-- `support@brain-connector-aria.local` (placeholder address; replace before public release)
+- `yonogames.dev@gmail.com`
 
 Do not post personal data or confidential details in public issues.
 
