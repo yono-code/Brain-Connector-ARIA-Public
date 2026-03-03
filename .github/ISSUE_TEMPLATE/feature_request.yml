@@ -1,0 +1,49 @@
+name: Feature request
+description: Propose an enhancement
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / context
+      description: What problem are you trying to solve?
+      placeholder: Describe the current limitation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What should be added or changed?
+      placeholder: Describe expected behavior and UX.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      placeholder: Any other approaches you considered.
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional notes
+      placeholder: Include constraints, examples, or references.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Confirmations
+      options:
+        - label: I searched existing issues before submitting.
+          required: true
+        - label: This request does not propose enabling external network sync in the local-only release line.
+          required: false
