@@ -36,6 +36,14 @@ DEVELOPMENT_PHILOSOPHY.md
 CLAUDE.md
 docs/
 *.docx
+PUBLIC_REPO_PREP.md
+AGENTS.md
+
+# 公開・CI運用ファイル（拡張機能実行には不要）
+.github/
+scripts/
+artifacts/
+release/
 
 # assets の説明ファイル（アイコン画像は含める）
 assets/README.md

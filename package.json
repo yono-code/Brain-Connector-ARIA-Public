@@ -3,7 +3,7 @@
   "displayName": "Brain Connector ARIA",
   "description": "Automatically generate AI-ready context (Markdown/Mermaid) just by managing your project in the GUI.",
   "version": "0.1.0",
-  "publisher": "aria-dev",
+  "publisher": "yonogames",
   "license": "Apache-2.0",
   "engines": {
     "vscode": "^1.85.0"
@@ -125,10 +125,10 @@
     "dependency:review": "node scripts/generate-dependency-review.cjs"
   },
   "devDependencies": {
-    "@types/node": "^25.3.3",
+    "@types/node": "^20.0.0",
     "@types/vscode": "^1.85.0",
     "concurrently": "^9.0.0",
-    "esbuild": "^0.27.3",
+    "esbuild": "^0.25.0",
     "typescript": "^5.0.0",
     "vitest": "^4.0.18"
   }
