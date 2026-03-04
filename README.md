@@ -79,6 +79,16 @@ Task checkbox/title edits in `status.md` are also parsed and synced back to `ari
 
 ---
 
+## Core Build Docs
+
+Public portfolio docs for core feature construction are available in:
+
+- `portfolio/ai_shared_core/`
+
+This slice excludes legal/FTO and medium-or-higher risk records.
+
+---
+
 ## Extension Commands
 
 | Command | Description |
