@@ -38,6 +38,7 @@ docs/
 *.docx
 PUBLIC_REPO_PREP.md
 AGENTS.md
+portfolio/
 
 # 公開・CI運用ファイル（拡張機能実行には不要）
 .github/
