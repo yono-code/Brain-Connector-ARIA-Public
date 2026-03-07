@@ -12,6 +12,7 @@ export interface KanbanTask {
   id: string;           // 形式: "task-xxxxxxxx"（crypto.randomUUID() で生成）
   status: TaskStatus;
   title: string;
+  note?: string;
   linkedNodeIds: string[];
   createdAt: string;    // ISO 8601 形式
   updatedAt: string;    // ISO 8601 形式
@@ -69,7 +70,7 @@ export interface WorkspaceConsentRecord {
 
 export interface AriaNode {
   id: string;           // 形式: "node-xxxxxxxx"
-  type: 'c4-container' | 'c4-component' | 'mindmap';
+  type: 'c4-container' | 'c4-component' | 'c4-person' | 'c4-database' | 'c4-module' | 'mindmap';
   position: { x: number; y: number };
   data: {
     label: string;
@@ -88,11 +89,20 @@ export interface AriaNode {
   selected?: boolean;
 }
 
+export type AriaEdgeVariant =
+  | 'single-forward'
+  | 'single-reverse'
+  | 'double-headed'
+  | 'double-parallel';
+
 export interface AriaEdge {
   id: string;           // 形式: "edge-xxxxxxxx"
   source: string;
   target: string;
   label?: string;
+  variant?: AriaEdgeVariant;
+  sourceLabel?: string;
+  targetLabel?: string;
 }
 
 export interface ContainerCanvas {

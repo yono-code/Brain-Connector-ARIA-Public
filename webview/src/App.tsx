@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import './App.css';
 import './styles/theme.css';
 import { AriaCanvas }       from './components/canvas/AriaCanvas';
@@ -27,6 +27,7 @@ function App() {
   const addTask  = useAriaStore((s) => s.addTask);
   const nodes    = useAriaStore((s) => s.nodes);
   const tasksMap = useAriaStore((s) => s.tasks);
+  const selectedAdrId = useAriaStore((s) => s.selectedAdrId);
 
   const [isReady,   setIsReady]   = useState(false);
   const [error,     setError]     = useState<string | null>(null);
@@ -88,6 +89,13 @@ function App() {
         break;
     }
   });
+
+  useEffect(() => {
+    if (!selectedAdrId) {
+      return;
+    }
+    setActiveTab('adr');
+  }, [selectedAdrId]);
 
   return (
     <I18nProvider snapshot={i18nSnapshot}>

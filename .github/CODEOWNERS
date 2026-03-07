@@ -1,7 +1,7 @@
-# Default code owners (security hardening)
+# Default code owners (require review from both maintainers on protected branches)
 * @yono-code @yonogames-dev
 
-# High-risk paths
+# High-risk change areas
 .github/workflows/* @yono-code @yonogames-dev
 scripts/* @yono-code @yonogames-dev
 src/* @yono-code @yonogames-dev

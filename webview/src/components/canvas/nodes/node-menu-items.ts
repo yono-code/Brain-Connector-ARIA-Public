@@ -6,8 +6,10 @@ interface C4MenuParams {
   label: string;
   type: AriaNode['type'];
   currentLayer: 'context' | 'container';
+  hasLinkedAdr: boolean;
   onStartEdit: () => void;
   onAddAdr: (linkedNodeId: string, title: string) => void;
+  onOpenLinkedAdr: () => void;
   onEnterContainerLayer: (nodeId: string) => void;
   onDelete: () => void;
 }
@@ -43,6 +45,10 @@ export function buildC4ContextMenuItems(params: C4MenuParams): ContextMenuItem[]
     { icon: '✏️', label: 'ラベルを編集', onClick: params.onStartEdit },
     { icon: '📄', label: 'ADRを追加', onClick: () => params.onAddAdr(params.id, `${params.label} の追加ADR`) },
   ];
+
+  if (params.hasLinkedAdr) {
+    items.push({ icon: '📘', label: '対応 ADR を開く', onClick: params.onOpenLinkedAdr });
+  }
 
   if (params.currentLayer === 'context' && params.type === 'c4-container') {
     items.push({ separator: true, label: '', onClick: () => {} });

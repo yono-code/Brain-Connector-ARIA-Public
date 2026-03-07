@@ -9,12 +9,20 @@ import { useContextMenu } from '../context-menu/ContextMenu';
 
 interface InboxCardProps {
   task: KanbanTask;
+  draggable?: boolean;
+  onDragStart?: (taskId: string) => void;
+  onDragEnd?: () => void;
 }
 
-export function InboxCard({ task }: InboxCardProps) {
+export function InboxCard({
+  task,
+  draggable = false,
+  onDragStart,
+  onDragEnd,
+}: InboxCardProps) {
   const nodes            = useAriaStore((s) => s.nodes);
   const updateTaskStatus = useAriaStore((s) => s.updateTaskStatus);
-  const updateTaskTitle  = useAriaStore((s) => s.updateTaskTitle);
+  const updateTask       = useAriaStore((s) => s.updateTask);
   const linkTaskToNode   = useAriaStore((s) => s.linkTaskToNode);
   const deleteTask       = useAriaStore((s) => s.deleteTask);
   const { openContextMenu } = useContextMenu();
@@ -22,6 +30,7 @@ export function InboxCard({ task }: InboxCardProps) {
   const [showDelete, setShowDelete] = useState(false);
   const [isEditing,  setIsEditing]  = useState(false);
   const [editValue,  setEditValue]  = useState(task.title);
+  const [editNote,   setEditNote]   = useState(task.note ?? '');
 
   const handleApprove = () => {
     updateTaskStatus(task.id, 'Todo');
@@ -34,21 +43,28 @@ export function InboxCard({ task }: InboxCardProps) {
 
   const startEdit = () => {
     setEditValue(task.title);
+    setEditNote(task.note ?? '');
     setIsEditing(true);
   };
 
   const commitEdit = () => {
     setIsEditing(false);
     const trimmed = editValue.trim();
-    if (trimmed && trimmed !== task.title) {
-      updateTaskTitle(task.id, trimmed);
-    } else {
+    const nextTitle = trimmed || task.title;
+    const nextNote = editNote.trim() ? editNote : undefined;
+    const hasChanged = nextTitle !== task.title || nextNote !== task.note;
+
+    if (!hasChanged) {
       setEditValue(task.title);
+      setEditNote(task.note ?? '');
+      return;
     }
+    updateTask(task.id, { title: nextTitle, note: nextNote });
   };
 
   const cancelEdit = () => {
     setEditValue(task.title);
+    setEditNote(task.note ?? '');
     setIsEditing(false);
   };
 
@@ -65,6 +81,13 @@ export function InboxCard({ task }: InboxCardProps) {
 
   return (
     <div
+      draggable={draggable && !isEditing}
+      onDragStart={(event) => {
+        event.dataTransfer.setData('text/task-id', task.id);
+        event.dataTransfer.effectAllowed = 'move';
+        onDragStart?.(task.id);
+      }}
+      onDragEnd={() => onDragEnd?.()}
       onContextMenu={handleContextMenu}
       onMouseEnter={() => setShowDelete(true)}
       onMouseLeave={() => setShowDelete(false)}
@@ -107,29 +130,85 @@ export function InboxCard({ task }: InboxCardProps) {
 
       {/* タイトル */}
       {isEditing ? (
-        <input
-          autoFocus
-          value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
-          onBlur={commitEdit}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter')  { e.preventDefault(); commitEdit(); }
-            if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
-          }}
-          style={{
-            display: 'block',
-            width: '100%',
-            boxSizing: 'border-box' as const,
-            fontSize: 12,
-            background: 'var(--vscode-input-background, #3c3c3c)',
-            color: 'var(--vscode-input-foreground, #d4d4d4)',
-            border: '1px solid var(--vscode-focusBorder, #007acc)',
-            borderRadius: 3,
-            padding: '2px 4px',
-            marginBottom: 6,
-            outline: 'none',
-          }}
-        />
+        <>
+          <input
+            autoFocus
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter')  { e.preventDefault(); commitEdit(); }
+              if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
+            }}
+            style={{
+              display: 'block',
+              width: '100%',
+              boxSizing: 'border-box' as const,
+              fontSize: 12,
+              background: 'var(--vscode-input-background, #3c3c3c)',
+              color: 'var(--vscode-input-foreground, #d4d4d4)',
+              border: '1px solid var(--vscode-focusBorder, #007acc)',
+              borderRadius: 3,
+              padding: '2px 4px',
+              marginBottom: 6,
+              outline: 'none',
+            }}
+          />
+          <textarea
+            value={editNote}
+            onChange={(e) => setEditNote(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
+            }}
+            placeholder="メモ"
+            style={{
+              display: 'block',
+              width: '100%',
+              boxSizing: 'border-box' as const,
+              fontSize: 11,
+              minHeight: 52,
+              resize: 'vertical',
+              background: 'var(--vscode-input-background, #3c3c3c)',
+              color: 'var(--vscode-input-foreground, #d4d4d4)',
+              border: '1px solid var(--vscode-dropdown-border, #454545)',
+              borderRadius: 3,
+              padding: '4px 6px',
+              marginBottom: 6,
+              outline: 'none',
+            }}
+          />
+          <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
+            <button
+              onClick={commitEdit}
+              style={{
+                flex: 1,
+                fontSize: 10,
+                padding: '2px 4px',
+                borderRadius: 3,
+                border: 'none',
+                background: 'var(--vscode-button-background, #0e639c)',
+                color: 'var(--vscode-button-foreground, #ffffff)',
+                cursor: 'pointer',
+              }}
+            >
+              保存
+            </button>
+            <button
+              onClick={cancelEdit}
+              style={{
+                flex: 1,
+                fontSize: 10,
+                padding: '2px 4px',
+                borderRadius: 3,
+                border: '1px solid var(--vscode-dropdown-border, #454545)',
+                background: 'var(--vscode-button-secondaryBackground, #3a3d41)',
+                color: 'var(--vscode-button-secondaryForeground, #d4d4d4)',
+                cursor: 'pointer',
+              }}
+            >
+              キャンセル
+            </button>
+          </div>
+        </>
       ) : (
         <div
           onDoubleClick={startEdit}
@@ -143,6 +222,27 @@ export function InboxCard({ task }: InboxCardProps) {
           }}
         >
           {task.title}
+        </div>
+      )}
+
+      {!isEditing && task.note && (
+        <div
+          title={task.note}
+          style={{
+            fontSize: 11,
+            lineHeight: 1.4,
+            marginBottom: 6,
+            color: 'var(--vscode-editor-foreground, #d4d4d4)',
+            background: 'rgba(127,127,127,0.12)',
+            border: '1px solid var(--vscode-panel-border, #454545)',
+            borderRadius: 4,
+            padding: '4px 6px',
+            whiteSpace: 'pre-wrap',
+            maxHeight: 76,
+            overflow: 'auto',
+          }}
+        >
+          📝 {task.note}
         </div>
       )}
 

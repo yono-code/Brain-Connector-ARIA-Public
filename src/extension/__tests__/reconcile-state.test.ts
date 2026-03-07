@@ -102,4 +102,90 @@ describe('reconcileState (M9 containerCanvases)', () => {
     expect(reconciled.nodes[0].position).toEqual({ x: 300, y: 400 });
     expect(reconciled.nodes[0].data.label).toBe('Incoming Mindmap');
   });
+
+  it('preserves optional edge fields when incoming edge keeps same id', () => {
+    const current: AriaState = {
+      ...baseState(),
+      edges: [
+        {
+          id: 'edge-1',
+          source: 'a',
+          target: 'b',
+          variant: 'double-parallel',
+          sourceLabel: 'request',
+          targetLabel: 'response',
+        },
+      ],
+    };
+    const incoming: AriaState = {
+      ...baseState(),
+      edges: [
+        {
+          id: 'edge-1',
+          source: 'a',
+          target: 'b',
+          label: 'API',
+        },
+      ],
+    };
+
+    const reconciled = reconcileState(incoming, current);
+
+    expect(reconciled.edges).toHaveLength(1);
+    expect(reconciled.edges[0]).toMatchObject({
+      id: 'edge-1',
+      label: 'API',
+      variant: 'double-parallel',
+      sourceLabel: 'request',
+      targetLabel: 'response',
+    });
+  });
+
+  it('preserves optional fields for container canvas edges with same id', () => {
+    const current: AriaState = {
+      ...baseState(),
+      containerCanvases: {
+        c1: {
+          nodeId: 'c1',
+          nodes: [],
+          edges: [
+            {
+              id: 'inner-edge',
+              source: 'x',
+              target: 'y',
+              variant: 'double-parallel',
+              sourceLabel: 'in',
+              targetLabel: 'out',
+            },
+          ],
+        },
+      },
+    };
+    const incoming: AriaState = {
+      ...baseState(),
+      containerCanvases: {
+        c1: {
+          nodeId: 'c1',
+          nodes: [],
+          edges: [
+            {
+              id: 'inner-edge',
+              source: 'x',
+              target: 'y',
+              label: 'bridge',
+            },
+          ],
+        },
+      },
+    };
+
+    const reconciled = reconcileState(incoming, current);
+    expect(reconciled.containerCanvases.c1.edges[0]).toMatchObject({
+      id: 'inner-edge',
+      label: 'bridge',
+      variant: 'double-parallel',
+      sourceLabel: 'in',
+      targetLabel: 'out',
+    });
+  });
 });

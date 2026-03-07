@@ -6,6 +6,25 @@
   --ring: var(--vscode-focusBorder, #007acc);
   --muted: var(--vscode-sideBar-background, #252526);
   --muted-foreground: var(--vscode-descriptionForeground, #9d9d9d);
+  --aria-edge-color: #6f7682;
+  --aria-edge-color-selected: #3fb9ff;
+  --aria-edge-width: 3px;
+  --aria-edge-width-selected: 4px;
+}
+
+body.vscode-light {
+  --aria-edge-color: #4a5565;
+  --aria-edge-color-selected: #0f6adf;
+}
+
+body.vscode-dark {
+  --aria-edge-color: #8f98a6;
+  --aria-edge-color-selected: #4fc1ff;
+}
+
+body.vscode-high-contrast {
+  --aria-edge-color: #ffffff;
+  --aria-edge-color-selected: #ffff00;
 }
 
 /* React Flow のキャンバス背景をテーマに合わせる */
@@ -26,4 +45,28 @@
 
 .react-flow__minimap {
   background: var(--vscode-sideBar-background, #252526) !important;
+}
+
+.react-flow__edge-path {
+  stroke: var(--aria-edge-color) !important;
+  stroke-width: var(--aria-edge-width) !important;
+}
+
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge:focus .react-flow__edge-path {
+  stroke: var(--aria-edge-color-selected) !important;
+  stroke-width: var(--aria-edge-width-selected) !important;
+}
+
+.react-flow__arrowhead path,
+.react-flow__marker path {
+  fill: var(--aria-edge-color) !important;
+  stroke: var(--aria-edge-color) !important;
+  stroke-width: 1.5px !important;
+}
+
+.react-flow__edge.selected .react-flow__arrowhead path,
+.react-flow__edge.selected .react-flow__marker path {
+  fill: var(--aria-edge-color-selected) !important;
+  stroke: var(--aria-edge-color-selected) !important;
 }

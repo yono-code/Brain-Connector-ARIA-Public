@@ -1,6 +1,12 @@
 import type { AriaNode, ContainerCanvas } from '../../../../src/shared/types';
 
-const C4_TYPES = new Set<AriaNode['type']>(['c4-container', 'c4-component']);
+const C4_TYPES = new Set<AriaNode['type']>([
+  'c4-container',
+  'c4-component',
+  'c4-person',
+  'c4-database',
+  'c4-module',
+]);
 
 export interface AdrLinkedElementInfo {
   isC4Linked: boolean;

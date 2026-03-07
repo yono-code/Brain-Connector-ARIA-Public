@@ -118,4 +118,42 @@ describe('architecture-generator (M9 containerCanvases)', () => {
     expect(output).not.toContain('Inner Mindmap');
     expect(output).not.toContain('edge-inner-mm');
   });
+
+  it('renders C4 edge variants with labels', () => {
+    const output = generateArchitectureMermaid(
+      [
+        {
+          id: 'a',
+          type: 'c4-container',
+          position: { x: 0, y: 0 },
+          data: { label: 'A' },
+        },
+        {
+          id: 'b',
+          type: 'c4-component',
+          position: { x: 10, y: 0 },
+          data: { label: 'B' },
+        },
+      ],
+      [
+        { id: 'e1', source: 'a', target: 'b', variant: 'single-forward', label: 'forward' },
+        { id: 'e2', source: 'a', target: 'b', variant: 'single-reverse', label: 'reverse' },
+        { id: 'e3', source: 'a', target: 'b', variant: 'double-headed', label: 'duplex' },
+        {
+          id: 'e4',
+          source: 'a',
+          target: 'b',
+          variant: 'double-parallel',
+          sourceLabel: 'req',
+          targetLabel: 'res',
+        },
+      ],
+    );
+
+    expect(output).toContain('a --> |forward| b');
+    expect(output).toContain('a <-- |reverse| b');
+    expect(output).toContain('a <--> |duplex| b');
+    expect(output).toContain('a --> |req| b');
+    expect(output).toContain('b --> |res| a');
+  });
 });

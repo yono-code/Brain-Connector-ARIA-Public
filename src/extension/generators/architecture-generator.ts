@@ -1,7 +1,13 @@
 import { AriaNode, AriaEdge, ContainerCanvas } from '../../shared/types';
 
 function isC4Node(node: AriaNode): boolean {
-  return node.type === 'c4-container' || node.type === 'c4-component';
+  return (
+    node.type === 'c4-container' ||
+    node.type === 'c4-component' ||
+    node.type === 'c4-person' ||
+    node.type === 'c4-database' ||
+    node.type === 'c4-module'
+  );
 }
 
 function filterEdgesByNodeIds(edges: AriaEdge[], nodeIds: Set<string>): AriaEdge[] {
@@ -19,10 +25,16 @@ export function generateArchitectureMermaid(
   const contextEdges = filterEdgesByNodeIds(edges, contextNodeIds);
   const styledContainerNodeIds = new Set<string>();
   const styledComponentNodeIds = new Set<string>();
+  const styledPersonNodeIds = new Set<string>();
+  const styledDatabaseNodeIds = new Set<string>();
+  const styledModuleNodeIds = new Set<string>();
 
   for (const node of contextNodes) {
     if (node.type === 'c4-container') styledContainerNodeIds.add(node.id);
     if (node.type === 'c4-component') styledComponentNodeIds.add(node.id);
+    if (node.type === 'c4-person') styledPersonNodeIds.add(node.id);
+    if (node.type === 'c4-database') styledDatabaseNodeIds.add(node.id);
+    if (node.type === 'c4-module') styledModuleNodeIds.add(node.id);
   }
 
   const lines: string[] = [
@@ -45,8 +57,9 @@ export function generateArchitectureMermaid(
 
   // エッジを出力する
   for (const edge of contextEdges) {
-    const label = edge.label ? ` |${escapeMermaidText(edge.label)}|` : '';
-    lines.push(`    ${edge.source} -->${label} ${edge.target}`);
+    for (const edgeLine of buildMermaidEdgeLines(edge)) {
+      lines.push(`    ${edgeLine}`);
+    }
   }
 
   if (contextNodes.length === 0) {
@@ -64,6 +77,9 @@ export function generateArchitectureMermaid(
     for (const node of innerNodes) {
       if (node.type === 'c4-container') styledContainerNodeIds.add(node.id);
       if (node.type === 'c4-component') styledComponentNodeIds.add(node.id);
+      if (node.type === 'c4-person') styledPersonNodeIds.add(node.id);
+      if (node.type === 'c4-database') styledDatabaseNodeIds.add(node.id);
+      if (node.type === 'c4-module') styledModuleNodeIds.add(node.id);
     }
 
     lines.push('');
@@ -86,8 +102,9 @@ export function generateArchitectureMermaid(
       }
 
       for (const edge of innerEdges) {
-        const label = edge.label ? ` |${escapeMermaidText(edge.label)}|` : '';
-        lines.push(`    ${edge.source} -->${label} ${edge.target}`);
+        for (const edgeLine of buildMermaidEdgeLines(edge)) {
+          lines.push(`    ${edgeLine}`);
+        }
       }
     }
 
@@ -98,11 +115,23 @@ export function generateArchitectureMermaid(
   lines.push('  %% C4 Node Styles');
   lines.push('  classDef c4Container fill:#1f2d3d,stroke:#4ea1ff,color:#d4d4d4,stroke-width:1.2px;');
   lines.push('  classDef c4Component fill:#1f3b33,stroke:#4ec9b0,color:#d4d4d4,stroke-width:1.2px;');
+  lines.push('  classDef c4Person fill:#3b2f5a,stroke:#c084fc,color:#e8ddff,stroke-width:1.2px;');
+  lines.push('  classDef c4Database fill:#2d3b2f,stroke:#34d399,color:#dafbe1,stroke-width:1.2px;');
+  lines.push('  classDef c4Module fill:#3f3220,stroke:#f59e0b,color:#ffe9c2,stroke-width:1.2px;');
   if (styledContainerNodeIds.size > 0) {
     lines.push(`  class ${Array.from(styledContainerNodeIds).join(',')} c4Container;`);
   }
   if (styledComponentNodeIds.size > 0) {
     lines.push(`  class ${Array.from(styledComponentNodeIds).join(',')} c4Component;`);
+  }
+  if (styledPersonNodeIds.size > 0) {
+    lines.push(`  class ${Array.from(styledPersonNodeIds).join(',')} c4Person;`);
+  }
+  if (styledDatabaseNodeIds.size > 0) {
+    lines.push(`  class ${Array.from(styledDatabaseNodeIds).join(',')} c4Database;`);
+  }
+  if (styledModuleNodeIds.size > 0) {
+    lines.push(`  class ${Array.from(styledModuleNodeIds).join(',')} c4Module;`);
   }
 
   return lines.join('\n') + '\n';
@@ -110,4 +139,31 @@ export function generateArchitectureMermaid(
 
 function escapeMermaidText(value: string): string {
   return value.replace(/"/g, "'");
+}
+
+function buildMermaidEdgeLines(edge: AriaEdge): string[] {
+  const source = edge.source;
+  const target = edge.target;
+  const variant = edge.variant ?? 'single-forward';
+  const label = edge.label ? ` |${escapeMermaidText(edge.label)}|` : '';
+
+  switch (variant) {
+    case 'single-reverse':
+      return [`${source} <--${label} ${target}`];
+    case 'double-headed':
+      return [`${source} <-->${label} ${target}`];
+    case 'double-parallel': {
+      const sourceLabel = edge.sourceLabel ?? edge.label;
+      const targetLabel = edge.targetLabel;
+      const firstLabel = sourceLabel ? ` |${escapeMermaidText(sourceLabel)}|` : '';
+      const secondLabel = targetLabel ? ` |${escapeMermaidText(targetLabel)}|` : '';
+      return [
+        `${source} -->${firstLabel} ${target}`,
+        `${target} -->${secondLabel} ${source}`,
+      ];
+    }
+    case 'single-forward':
+    default:
+      return [`${source} -->${label} ${target}`];
+  }
 }

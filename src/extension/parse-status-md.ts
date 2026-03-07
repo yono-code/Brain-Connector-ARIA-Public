@@ -62,10 +62,12 @@ export function parseStatusMd(
 
     if (taskId && TASK_ID_PATTERN.test(taskId)) {
       const previous = nextTasks[taskId];
+      const notePatch = previous?.note ? { note: previous.note } : {};
       nextTasks[taskId] = {
         id: taskId,
         status: resolveStatus(currentStatus, isChecked),
         title,
+        ...notePatch,
         linkedNodeIds: previous?.linkedNodeIds ?? [],
         createdAt: previous?.createdAt ?? now,
         updatedAt: now,
@@ -200,4 +202,3 @@ function createTaskId(): string {
   const shortId = crypto.randomUUID().replace(/-/g, '').slice(0, 8).toLowerCase();
   return `task-${shortId}`;
 }
-

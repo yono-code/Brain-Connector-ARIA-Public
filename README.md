@@ -1,4 +1,38 @@
-# Brain Connector ARIA — AI-driven Requirement & Integration Architecture
+# Brain Connector ARIA
+
+## 日本語ガイド
+
+> **GUIで管理すると、AI向けコンテキストが自動生成されます。**
+
+Brain Connector ARIA は、プロジェクト管理と AI 支援開発をつなぐ VS Code 拡張です。  
+ノード追加、タスク更新、ADR編集などの操作は `.ai-context/` に即時反映され、AI が読める形式で保持されます。
+
+### 主な機能
+
+- C4 アーキテクチャ編集（Context / Container）
+- セマンティックネットワーク編集（マインドマップ）
+- Kanban（Inbox / Todo / In Progress / Done）
+- ADR 管理（C4 ノード追加時に自動生成）
+- 双方向同期（GUI -> ファイル / ファイル -> GUI）
+- C4 / セマンティックネットワークの整列（`Ctrl/Cmd+Shift+L`）
+- C4 ライン編集（種別・ラベル・削除）
+
+### クイックスタート
+
+1. VS Code Marketplace から **Brain Connector ARIA** をインストール
+2. フォルダまたはワークスペースを開く
+3. `Ctrl+Shift+A`（Mac: `Cmd+Shift+A`）で ARIA パネルを開く
+4. `+ Container` で最初のノードを追加
+5. `.ai-context/` に `aria-state.json`, `status.md`, `architecture.mermaid` が生成されることを確認
+
+### 補足
+
+- `architecture.mermaid` は `aria-state.json` から生成される派生ファイルです
+- Local-First 方針により、外部ネットワーク依存は標準では追加しません
+
+---
+
+## English
 
 > **Manage your project in the GUI. AI-ready context is auto-generated.**
 

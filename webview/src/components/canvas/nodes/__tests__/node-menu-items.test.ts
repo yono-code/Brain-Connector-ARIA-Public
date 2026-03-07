@@ -8,6 +8,8 @@ describe('node-menu-items', () => {
       label: 'API',
       onStartEdit: vi.fn(),
       onAddAdr: vi.fn(),
+      hasLinkedAdr: false,
+      onOpenLinkedAdr: vi.fn(),
       onEnterContainerLayer: vi.fn(),
       onDelete: vi.fn(),
     };
@@ -47,5 +49,34 @@ describe('node-menu-items', () => {
     expect(items.some((i) => i.label === 'コンテナレイヤーへ遷移')).toBe(false);
     expect(items.some((i) => i.label === 'タスクへ追加')).toBe(true);
   });
-});
 
+  it('shows linked ADR action only when ADR exists', () => {
+    const withAdr = buildC4ContextMenuItems({
+      id: 'node-1',
+      label: 'API',
+      type: 'c4-component',
+      currentLayer: 'context',
+      hasLinkedAdr: true,
+      onStartEdit: vi.fn(),
+      onAddAdr: vi.fn(),
+      onOpenLinkedAdr: vi.fn(),
+      onEnterContainerLayer: vi.fn(),
+      onDelete: vi.fn(),
+    });
+    expect(withAdr.some((i) => i.label === '対応 ADR を開く')).toBe(true);
+
+    const withoutAdr = buildC4ContextMenuItems({
+      id: 'node-1',
+      label: 'API',
+      type: 'c4-component',
+      currentLayer: 'context',
+      hasLinkedAdr: false,
+      onStartEdit: vi.fn(),
+      onAddAdr: vi.fn(),
+      onOpenLinkedAdr: vi.fn(),
+      onEnterContainerLayer: vi.fn(),
+      onDelete: vi.fn(),
+    });
+    expect(withoutAdr.some((i) => i.label === '対応 ADR を開く')).toBe(false);
+  });
+});
