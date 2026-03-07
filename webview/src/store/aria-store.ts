@@ -20,8 +20,23 @@ import {
   generateAdrId,
 } from '../utils/id-generator';
 import { postToExtension } from '../hooks/use-vscode-bridge';
+import { layoutMindmapAsTree } from '../components/mindmap/layout/align-mindmap';
+import { layoutC4NodesWithDagre } from '../components/c4/layout/align-c4-dagre';
+import { parseMermaidMindmap } from '../utils/mermaid/parse-mermaid-mindmap';
 
-const C4_NODE_TYPES = new Set<AriaNode['type']>(['c4-container', 'c4-component']);
+const C4_NODE_TYPES = new Set<AriaNode['type']>([
+  'c4-container',
+  'c4-component',
+  'c4-person',
+  'c4-database',
+  'c4-module',
+]);
+const EDGE_VARIANTS = new Set<NonNullable<AriaEdge['variant']>>([
+  'single-forward',
+  'single-reverse',
+  'double-headed',
+  'double-parallel',
+]);
 const HEX_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
 const MINDMAP_HISTORY_LIMIT = 100;
 const DEFAULT_MINDMAP_SETTINGS: MindmapSettings = {
@@ -50,6 +65,7 @@ interface AriaStoreState extends AriaState {
   currentLayer: 'context' | 'container';
   activeContainerId: string | null;
   breadcrumb: BreadcrumbItem[];
+  selectedAdrId: string | null;
   mindmapBoundaries: Record<string, MindmapBoundary>;
   mindmapSettings: MindmapSettings;
 
@@ -97,6 +113,11 @@ interface AriaStoreState extends AriaState {
   toggleMindmapCollapsed: (nodeId: string) => void;
   setMindmapDescendantsCollapsed: (nodeId: string, collapsed: boolean) => void;
   updateMindmapNote: (nodeId: string, note: string) => void;
+  updateEdge: (
+    edgeId: string,
+    patch: Partial<Pick<AriaEdge, 'label' | 'variant' | 'sourceLabel' | 'targetLabel'>>,
+  ) => void;
+  deleteEdge: (edgeId: string) => void;
   updateEdgeLabel: (edgeId: string, label: string) => void;
   reparentMindmapNode: (nodeId: string, newParentId: string) => boolean;
   setMindmapCheckboxEnabled: (nodeId: string, enabled: boolean) => void;
@@ -107,10 +128,18 @@ interface AriaStoreState extends AriaState {
   setMindmapNodeColor: (nodeId: string, color: string | undefined) => void;
   setMindmapNodeStyleRole: (nodeId: string, role: MindmapStyleRole) => void;
   setMindmapSnapEnabled: (enabled: boolean) => void;
+  alignSurface: (surface: DiagramSurfaceRef) => boolean;
+  alignCurrentSurface: () => boolean;
+  alignMindmapTree: (coreNodeId?: string) => boolean;
+  importMindmapMermaid: (source: string) => { ok: true; importedNodeCount: number } | { ok: false; error: string };
+  selectMindmapNode: (nodeId: string) => void;
 
   // タスク CRUD
   addTask: (title: string) => KanbanTask;
-  updateTask: (taskId: string, patch: Partial<Pick<KanbanTask, 'title' | 'status' | 'startDate' | 'dueDate'>>) => void;
+  updateTask: (
+    taskId: string,
+    patch: Partial<Pick<KanbanTask, 'title' | 'status' | 'startDate' | 'dueDate' | 'note'>>,
+  ) => void;
   updateTaskStatus: (taskId: string, status: TaskStatus) => void;
   updateTaskTitle: (taskId: string, title: string) => void;
   deleteTask: (taskId: string) => void;
@@ -123,6 +152,8 @@ interface AriaStoreState extends AriaState {
   addADR: (linkedNodeId: string, title: string) => ADR | null;
   updateADR: (adrId: string, patch: Partial<Pick<ADR, 'decision' | 'rejectedOptions' | 'title'>>) => void;
   deleteADR: (adrId: string) => void;
+  selectAdrByNodeId: (nodeId: string) => void;
+  setSelectedAdrId: (adrId: string | null) => void;
 
   // 状態の一括更新（逆同期時のみ使用 — Extension Host への通知は行わない）
   setState: (newState: AriaState) => void;
@@ -363,6 +394,141 @@ function patchEdgeSubset(
   });
 }
 
+function isEdgeVariant(value: unknown): value is NonNullable<AriaEdge['variant']> {
+  return typeof value === 'string' && EDGE_VARIANTS.has(value as NonNullable<AriaEdge['variant']>);
+}
+
+function normalizeEdgeText(value: string | undefined): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return trimmed ? value : undefined;
+}
+
+function patchEdgeWithUpdate(
+  edge: AriaEdge,
+  patch: Partial<Pick<AriaEdge, 'label' | 'variant' | 'sourceLabel' | 'targetLabel'>>,
+): AriaEdge {
+  const next: AriaEdge = { ...edge };
+
+  if ('label' in patch) {
+    next.label = normalizeEdgeText(patch.label);
+  }
+  if ('variant' in patch && isEdgeVariant(patch.variant)) {
+    next.variant = patch.variant;
+  }
+  if ('sourceLabel' in patch) {
+    next.sourceLabel = normalizeEdgeText(patch.sourceLabel);
+  }
+  if ('targetLabel' in patch) {
+    next.targetLabel = normalizeEdgeText(patch.targetLabel);
+  }
+
+  const effectiveVariant = next.variant ?? 'single-forward';
+  if (effectiveVariant !== 'double-parallel') {
+    delete next.sourceLabel;
+    delete next.targetLabel;
+  }
+
+  return next;
+}
+
+function didEdgeChange(before: AriaEdge, after: AriaEdge): boolean {
+  return (
+    before.label !== after.label ||
+    before.variant !== after.variant ||
+    before.sourceLabel !== after.sourceLabel ||
+    before.targetLabel !== after.targetLabel ||
+    before.source !== after.source ||
+    before.target !== after.target
+  );
+}
+
+function deriveCurrentC4Surface(
+  state: Pick<AriaStoreState, 'currentLayer' | 'activeContainerId'>,
+): DiagramSurfaceRef {
+  if (state.currentLayer === 'container' && state.activeContainerId) {
+    return { kind: 'c4-container', containerId: state.activeContainerId };
+  }
+  return { kind: 'c4-context' };
+}
+
+function applyC4LayoutToSurface(
+  state: AriaStoreState,
+  surface: DiagramSurfaceRef,
+): { changed: boolean; nextPartial: Partial<AriaStoreState> | null } {
+  if (surface.kind === 'mindmap-root') {
+    return { changed: false, nextPartial: null };
+  }
+
+  const nodes = getSurfaceNodesFromState(state, surface);
+  const edges = getSurfaceEdgesFromState(state, surface);
+  if (nodes.length === 0) {
+    return { changed: false, nextPartial: null };
+  }
+
+  const positions = layoutC4NodesWithDagre(nodes, edges);
+  let changed = false;
+
+  if (surface.kind === 'c4-container') {
+    const canvas = ensureContainerCanvas(state.containerCanvases, surface.containerId);
+    const nextCanvasNodes = canvas.nodes.map((node) => {
+      const nextPos = positions[node.id];
+      if (!nextPos) return node;
+      if (node.position.x === nextPos.x && node.position.y === nextPos.y) {
+        return node;
+      }
+      changed = true;
+      return {
+        ...node,
+        position: nextPos,
+      };
+    });
+
+    if (!changed) {
+      return { changed: false, nextPartial: null };
+    }
+
+    return {
+      changed: true,
+      nextPartial: {
+        containerCanvases: withUpdatedContainerCanvas(
+          state.containerCanvases,
+          surface.containerId,
+          (currentCanvas) => ({
+            ...currentCanvas,
+            nodes: nextCanvasNodes,
+          }),
+        ),
+      },
+    };
+  }
+
+  const nextNodes = state.nodes.map((node) => {
+    if (!isC4Node(node)) return node;
+    const nextPos = positions[node.id];
+    if (!nextPos) return node;
+    if (node.position.x === nextPos.x && node.position.y === nextPos.y) {
+      return node;
+    }
+    changed = true;
+    return {
+      ...node,
+      position: nextPos,
+    };
+  });
+
+  if (!changed) {
+    return { changed: false, nextPartial: null };
+  }
+
+  return {
+    changed: true,
+    nextPartial: { nodes: nextNodes },
+  };
+}
+
 function getMindmapNodeIds(nodes: AriaNode[]): Set<string> {
   return new Set(nodes.filter(isMindmapNode).map((node) => node.id));
 }
@@ -578,6 +744,7 @@ export const useAriaStore = create<AriaStoreState>((set, get) => ({
   currentLayer: 'context',
   activeContainerId: null,
   breadcrumb: [],
+  selectedAdrId: null,
   mindmapUndoStack: [],
   mindmapRedoStack: [],
   canUndoMindmap: false,
@@ -602,7 +769,7 @@ export const useAriaStore = create<AriaStoreState>((set, get) => ({
   onConnect: (connection) => {
     set((s) => ({
       edges: addEdge(
-        { ...connection, id: generateEdgeId() },
+        { ...connection, id: generateEdgeId(), variant: 'single-forward' },
         s.edges,
       ) as AriaEdge[],
     }));
@@ -638,10 +805,49 @@ export const useAriaStore = create<AriaStoreState>((set, get) => ({
         };
       }
 
+      const currentMindmapNodes = s.nodes.filter(isMindmapNode);
+      let updatedMindmapNodes = applyNodeChanges(changes, currentMindmapNodes) as AriaNode[];
+
+      // 親ノード移動時は子孫ノードも同じ差分で追従させる（手動配置の相対関係を維持）
+      const draggingPositionChange = changes.find((change) => {
+        if (change.type !== 'position') return false;
+        const c = change as NodeChange & { dragging?: boolean };
+        return c.dragging === true;
+      }) as (NodeChange & { id: string; dragging?: boolean }) | undefined;
+
+      if (draggingPositionChange) {
+        const before = currentMindmapNodes.find((node) => node.id === draggingPositionChange.id);
+        const after = updatedMindmapNodes.find((node) => node.id === draggingPositionChange.id);
+
+        if (before && after) {
+          const dx = after.position.x - before.position.x;
+          const dy = after.position.y - before.position.y;
+
+          if (dx !== 0 || dy !== 0) {
+            const descendants = new Set(
+              collectDescendantNodeIds(getMindmapEdges(s.nodes, s.edges), draggingPositionChange.id),
+            );
+            if (descendants.size > 0) {
+              updatedMindmapNodes = updatedMindmapNodes.map((node) => (
+                descendants.has(node.id)
+                  ? {
+                      ...node,
+                      position: {
+                        x: node.position.x + dx,
+                        y: node.position.y + dy,
+                      },
+                    }
+                  : node
+              ));
+            }
+          }
+        }
+      }
+
       const nextNodes = patchNodeSubset(
         s.nodes,
         isMindmapNode,
-        (subset) => applyNodeChanges(changes, subset) as AriaNode[],
+        () => updatedMindmapNodes,
       );
 
       return {
@@ -710,9 +916,21 @@ export const useAriaStore = create<AriaStoreState>((set, get) => ({
             surface.containerId,
             (canvas) => ({
               ...canvas,
-              edges: addEdge({ ...connection, id: generateEdgeId() }, canvas.edges) as AriaEdge[],
+              edges: addEdge(
+                { ...connection, id: generateEdgeId(), variant: 'single-forward' },
+                canvas.edges,
+              ) as AriaEdge[],
             }),
           ),
+        };
+      }
+
+      if (surface.kind === 'c4-context') {
+        return {
+          edges: addEdge(
+            { ...connection, id: generateEdgeId(), variant: 'single-forward' },
+            s.edges,
+          ) as AriaEdge[],
         };
       }
 
@@ -839,6 +1057,13 @@ export const useAriaStore = create<AriaStoreState>((set, get) => ({
     }));
     _notifyExtension(get());
     return node;
+  },
+
+  selectMindmapNode: (nodeId) => {
+    set((s) => ({
+      nodes: selectMindmapNode(s.nodes, nodeId),
+    }));
+    _notifyExtension(get());
   },
 
   updateNodeData: (nodeId, data) => {
@@ -1093,25 +1318,178 @@ export const useAriaStore = create<AriaStoreState>((set, get) => ({
     _notifyExtension(get());
   },
 
-  updateEdgeLabel: (edgeId, label) => {
+  updateEdge: (edgeId, patch) => {
+    let changed = false;
     set((s) => {
-      const target = s.edges.find((edge) => edge.id === edgeId);
-      const shouldTrackHistory = !!target && isMindmapEdge(s.nodes, target);
-      const normalized = label.trim();
+      const c4Surface = deriveCurrentC4Surface(s);
+      if (c4Surface.kind === 'c4-container') {
+        const canvas = ensureContainerCanvas(s.containerCanvases, c4Surface.containerId);
+        const target = canvas.edges.find((edge) => edge.id === edgeId);
+        if (target) {
+          const nextEdges = canvas.edges.map((edge) => {
+            if (edge.id !== edgeId) return edge;
+            const nextEdge = patchEdgeWithUpdate(edge, patch);
+            if (didEdgeChange(edge, nextEdge)) {
+              changed = true;
+            }
+            return nextEdge;
+          });
 
-      return {
-        ...(shouldTrackHistory ? pushMindmapHistoryState(s) : {}),
-        edges: s.edges.map((edge) => (
-          edge.id !== edgeId
-            ? edge
-            : {
-                ...edge,
-                label: normalized ? normalized : undefined,
+          if (!changed) {
+            return s;
+          }
+
+          return {
+            containerCanvases: withUpdatedContainerCanvas(
+              s.containerCanvases,
+              c4Surface.containerId,
+              (currentCanvas) => ({
+                ...currentCanvas,
+                edges: nextEdges,
+              }),
+            ),
+          };
+        }
+      }
+
+      const targetTopEdge = s.edges.find((edge) => edge.id === edgeId);
+      if (targetTopEdge) {
+        const shouldTrackHistory = isMindmapEdge(s.nodes, targetTopEdge);
+        const nextEdges = s.edges.map((edge) => {
+          if (edge.id !== edgeId) return edge;
+          const nextEdge = patchEdgeWithUpdate(edge, patch);
+          if (didEdgeChange(edge, nextEdge)) {
+            changed = true;
+          }
+          return nextEdge;
+        });
+
+        if (!changed) {
+          return s;
+        }
+
+        return {
+          ...(shouldTrackHistory ? pushMindmapHistoryState(s) : {}),
+          edges: nextEdges,
+          ...(shouldTrackHistory
+            ? {
+                mindmapBoundaries: refreshMindmapBoundaries(
+                  s.mindmapBoundaries,
+                  s.nodes,
+                  nextEdges,
+                ),
               }
-        )),
-      };
+            : {}),
+        };
+      }
+
+      for (const [containerId, canvas] of Object.entries(s.containerCanvases)) {
+        if (!canvas.edges.some((edge) => edge.id === edgeId)) {
+          continue;
+        }
+
+        const nextEdges = canvas.edges.map((edge) => {
+          if (edge.id !== edgeId) return edge;
+          const nextEdge = patchEdgeWithUpdate(edge, patch);
+          if (didEdgeChange(edge, nextEdge)) {
+            changed = true;
+          }
+          return nextEdge;
+        });
+
+        if (!changed) {
+          return s;
+        }
+
+        return {
+          containerCanvases: withUpdatedContainerCanvas(
+            s.containerCanvases,
+            containerId,
+            (currentCanvas) => ({
+              ...currentCanvas,
+              edges: nextEdges,
+            }),
+          ),
+        };
+      }
+
+      return s;
     });
-    _notifyExtension(get());
+
+    if (changed) {
+      _notifyExtension(get());
+    }
+  },
+
+  deleteEdge: (edgeId) => {
+    let changed = false;
+    set((s) => {
+      const c4Surface = deriveCurrentC4Surface(s);
+      if (c4Surface.kind === 'c4-container') {
+        const canvas = ensureContainerCanvas(s.containerCanvases, c4Surface.containerId);
+        if (canvas.edges.some((edge) => edge.id === edgeId)) {
+          changed = true;
+          return {
+            containerCanvases: withUpdatedContainerCanvas(
+              s.containerCanvases,
+              c4Surface.containerId,
+              (currentCanvas) => ({
+                ...currentCanvas,
+                edges: currentCanvas.edges.filter((edge) => edge.id !== edgeId),
+              }),
+            ),
+          };
+        }
+      }
+
+      const targetTopEdge = s.edges.find((edge) => edge.id === edgeId);
+      if (targetTopEdge) {
+        changed = true;
+        const shouldTrackHistory = isMindmapEdge(s.nodes, targetTopEdge);
+        const nextEdges = s.edges.filter((edge) => edge.id !== edgeId);
+        return {
+          ...(shouldTrackHistory ? pushMindmapHistoryState(s) : {}),
+          edges: nextEdges,
+          ...(shouldTrackHistory
+            ? {
+                mindmapBoundaries: refreshMindmapBoundaries(
+                  s.mindmapBoundaries,
+                  s.nodes,
+                  nextEdges,
+                ),
+              }
+            : {}),
+        };
+      }
+
+      for (const [containerId, canvas] of Object.entries(s.containerCanvases)) {
+        if (!canvas.edges.some((edge) => edge.id === edgeId)) {
+          continue;
+        }
+
+        changed = true;
+        return {
+          containerCanvases: withUpdatedContainerCanvas(
+            s.containerCanvases,
+            containerId,
+            (currentCanvas) => ({
+              ...currentCanvas,
+              edges: currentCanvas.edges.filter((edge) => edge.id !== edgeId),
+            }),
+          ),
+        };
+      }
+
+      return s;
+    });
+
+    if (changed) {
+      _notifyExtension(get());
+    }
+  },
+
+  updateEdgeLabel: (edgeId, label) => {
+    get().updateEdge(edgeId, { label });
   },
 
   reparentMindmapNode: (nodeId, newParentId) => {
@@ -1360,6 +1738,163 @@ export const useAriaStore = create<AriaStoreState>((set, get) => ({
     _notifyExtension(get());
   },
 
+  alignSurface: (surface) => {
+    if (surface.kind === 'mindmap-root') {
+      return get().alignMindmapTree();
+    }
+
+    let changed = false;
+    set((s) => {
+      const result = applyC4LayoutToSurface(s, surface);
+      changed = result.changed;
+      return result.nextPartial ?? s;
+    });
+
+    if (changed) {
+      _notifyExtension(get());
+    }
+    return changed;
+  },
+
+  alignCurrentSurface: () => {
+    const state = get();
+    return state.alignSurface(deriveCurrentC4Surface(state));
+  },
+
+  alignMindmapTree: (coreNodeId) => {
+    let changed = false;
+
+    set((s) => {
+      const mindmapNodes = s.nodes.filter(isMindmapNode);
+      if (mindmapNodes.length === 0) {
+        return s;
+      }
+
+      const mindmapEdges = getMindmapEdges(s.nodes, s.edges);
+      const positions = layoutMindmapAsTree(mindmapNodes, mindmapEdges, {
+        coreNodeId,
+      });
+
+      if (Object.keys(positions).length === 0) {
+        return s;
+      }
+
+      const nextNodes = s.nodes.map((node) => {
+        if (node.type !== 'mindmap') return node;
+        const nextPos = positions[node.id];
+        if (!nextPos) return node;
+        if (node.position.x === nextPos.x && node.position.y === nextPos.y) {
+          return node;
+        }
+        changed = true;
+        return {
+          ...node,
+          position: nextPos,
+        };
+      });
+
+      if (!changed) {
+        return s;
+      }
+
+      return {
+        ...pushMindmapHistoryState(s),
+        nodes: nextNodes,
+        mindmapBoundaries: refreshMindmapBoundaries(
+          s.mindmapBoundaries,
+          nextNodes,
+          s.edges,
+        ),
+      };
+    });
+
+    if (changed) {
+      _notifyExtension(get());
+    }
+    return changed;
+  },
+
+  importMindmapMermaid: (source) => {
+    const parsed = parseMermaidMindmap(source);
+    if (!parsed.ok) {
+      return { ok: false, error: parsed.error };
+    }
+
+    const { nodes: parsedNodes, coreKey } = parsed.graph;
+    if (parsedNodes.length === 0) {
+      return { ok: false, error: 'No nodes found in Mermaid input.' };
+    }
+
+    const idMap = new Map<string, string>();
+    for (const node of parsedNodes) {
+      idMap.set(node.key, generateNodeId());
+    }
+
+    const nextMindmapNodes: AriaNode[] = parsedNodes.map((node) => ({
+      id: idMap.get(node.key)!,
+      type: 'mindmap',
+      position: { x: 0, y: 0 },
+      data: {
+        label: node.label,
+        collapsed: false,
+        checkboxEnabled: false,
+        checked: false,
+        styleRole: node.parentKey ? 'standard' : 'top',
+      },
+      selected: false,
+    }));
+
+    const nextMindmapEdges: AriaEdge[] = parsedNodes
+      .filter((node) => node.parentKey)
+      .flatMap((node) => {
+        const source = idMap.get(node.parentKey!);
+        const target = idMap.get(node.key);
+        if (!source || !target) {
+          return [];
+        }
+        return [{
+          id: generateEdgeId(),
+          source,
+          target,
+        }];
+      });
+
+    const coreNodeId = idMap.get(coreKey) ?? nextMindmapNodes[0].id;
+    const positions = layoutMindmapAsTree(nextMindmapNodes, nextMindmapEdges, {
+      coreNodeId,
+    });
+    const positionedMindmapNodes = nextMindmapNodes.map((node) => ({
+      ...node,
+      position: positions[node.id] ?? node.position,
+    }));
+
+    set((s) => {
+      const oldMindmapIds = new Set(
+        s.nodes.filter((node) => node.type === 'mindmap').map((node) => node.id),
+      );
+      const nonMindmapNodes = s.nodes.filter((node) => node.type !== 'mindmap');
+      const nonMindmapEdges = s.edges.filter(
+        (edge) => !oldMindmapIds.has(edge.source) && !oldMindmapIds.has(edge.target),
+      );
+      const mergedNodes = selectMindmapNode(
+        [...nonMindmapNodes, ...positionedMindmapNodes],
+        coreNodeId,
+      );
+      const mergedEdges = [...nonMindmapEdges, ...nextMindmapEdges];
+
+      return {
+        ...pushMindmapHistoryState(s),
+        nodes: mergedNodes,
+        edges: mergedEdges,
+        tasks: removeTaskLinksForDeletedNodes(s.tasks, oldMindmapIds),
+        mindmapBoundaries: refreshMindmapBoundaries({}, mergedNodes, mergedEdges),
+      };
+    });
+
+    _notifyExtension(get());
+    return { ok: true, importedNodeCount: parsedNodes.length };
+  },
+
   // --- タスク CRUD ---
 
   addTask: (title) => {
@@ -1381,12 +1916,16 @@ export const useAriaStore = create<AriaStoreState>((set, get) => ({
     set((s) => {
       const task = s.tasks[taskId];
       if (!task) return s;
+      const normalizedPatch = { ...patch };
+      if (typeof normalizedPatch.note === 'string') {
+        normalizedPatch.note = normalizedPatch.note.trim() ? normalizedPatch.note : undefined;
+      }
       return {
         tasks: {
           ...s.tasks,
           [taskId]: {
             ...task,
-            ...patch,
+            ...normalizedPatch,
             updatedAt: new Date().toISOString(),
           },
         },
@@ -1503,19 +2042,49 @@ export const useAriaStore = create<AriaStoreState>((set, get) => ({
     set((s) => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { [adrId]: _removed, ...remaining } = s.adrs;
-      return { adrs: remaining };
+      return {
+        adrs: remaining,
+        selectedAdrId: s.selectedAdrId === adrId ? null : s.selectedAdrId,
+      };
     });
     _notifyExtension(get());
+  },
+
+  selectAdrByNodeId: (nodeId) => {
+    const adr = Object.values(get().adrs).find((entry) => entry.linkedNodeId === nodeId);
+    if (!adr) {
+      return;
+    }
+    set({ selectedAdrId: adr.id });
+  },
+
+  setSelectedAdrId: (adrId) => {
+    set({ selectedAdrId: adrId });
   },
 
   // --- 状態一括更新（逆同期専用） ---
   setState: (newState) => {
     const normalizedState = normalizeAriaState(newState);
+    const currentState = get();
+    const currentSelectedAdrId = currentState.selectedAdrId;
+    const currentSelectedLinkedNodeId = currentSelectedAdrId
+      ? currentState.adrs[currentSelectedAdrId]?.linkedNodeId
+      : undefined;
+    const fallbackAdrByLinkedNode = currentSelectedLinkedNodeId
+      ? Object.values(normalizedState.adrs).find((adr) => adr.linkedNodeId === currentSelectedLinkedNodeId)?.id
+      : undefined;
+    const hasAnyAdr = Object.keys(normalizedState.adrs).length > 0;
+    const nextSelectedAdrId = !currentSelectedAdrId
+      ? null
+      : normalizedState.adrs[currentSelectedAdrId]
+        ? currentSelectedAdrId
+        : fallbackAdrByLinkedNode ?? (hasAnyAdr ? currentSelectedAdrId : null);
     set({
       ...normalizedState,
       containerCanvases: normalizedState.containerCanvases ?? {},
       mindmapBoundaries: normalizedState.mindmapBoundaries ?? {},
       mindmapSettings: normalizeMindmapSettings(normalizedState.mindmapSettings),
+      selectedAdrId: nextSelectedAdrId,
       mindmapUndoStack: [],
       mindmapRedoStack: [],
       canUndoMindmap: false,

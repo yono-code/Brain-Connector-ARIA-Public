@@ -24,8 +24,9 @@ describe('mindmap-keyboard', () => {
       canvasType: 'c4',
       nodes: [makeMindmapNode('node-1', true)],
       event: { key: 'Tab', preventDefault, stopPropagation },
-      addMindmapChild: addChild,
-      addMindmapSibling: addSibling,
+      addMindmapChild: addChild.mockReturnValue(makeMindmapNode('node-2')),
+      addMindmapSibling: addSibling.mockReturnValue(makeMindmapNode('node-3')),
+      focusMindmapNode: vi.fn(),
       deleteMindmapNode: deleteNode,
       undoMindmap: vi.fn(),
       redoMindmap: vi.fn(),
@@ -47,8 +48,9 @@ describe('mindmap-keyboard', () => {
         preventDefault: vi.fn(),
         stopPropagation: vi.fn(),
       },
-      addMindmapChild: addChild,
-      addMindmapSibling: vi.fn(),
+      addMindmapChild: addChild.mockReturnValue(makeMindmapNode('node-2')),
+      addMindmapSibling: vi.fn().mockReturnValue(makeMindmapNode('node-3')),
+      focusMindmapNode: vi.fn(),
       deleteMindmapNode: vi.fn(),
       undoMindmap: vi.fn(),
       redoMindmap: vi.fn(),
@@ -60,6 +62,7 @@ describe('mindmap-keyboard', () => {
 
   it('Tab adds child node for selected mindmap node', () => {
     const addChild = vi.fn();
+    const focus = vi.fn();
     const preventDefault = vi.fn();
     const stopPropagation = vi.fn();
 
@@ -67,8 +70,9 @@ describe('mindmap-keyboard', () => {
       canvasType: 'mindmap',
       nodes: [makeMindmapNode('node-1', true)],
       event: { key: 'Tab', preventDefault, stopPropagation },
-      addMindmapChild: addChild,
-      addMindmapSibling: vi.fn(),
+      addMindmapChild: addChild.mockReturnValue(makeMindmapNode('node-2')),
+      addMindmapSibling: vi.fn().mockReturnValue(makeMindmapNode('node-3')),
+      focusMindmapNode: focus,
       deleteMindmapNode: vi.fn(),
       undoMindmap: vi.fn(),
       redoMindmap: vi.fn(),
@@ -76,18 +80,21 @@ describe('mindmap-keyboard', () => {
 
     expect(handled).toBe(true);
     expect(addChild).toHaveBeenCalledWith('node-1');
+    expect(focus).toHaveBeenCalledWith('node-2');
     expect(preventDefault).toHaveBeenCalledTimes(1);
     expect(stopPropagation).toHaveBeenCalledTimes(1);
   });
 
   it('Enter adds sibling node for selected mindmap node', () => {
     const addSibling = vi.fn();
+    const focus = vi.fn();
     const handled = handleMindmapShortcut({
       canvasType: 'mindmap',
       nodes: [makeMindmapNode('node-1', true)],
       event: { key: 'Enter', preventDefault: vi.fn(), stopPropagation: vi.fn() },
-      addMindmapChild: vi.fn(),
-      addMindmapSibling: addSibling,
+      addMindmapChild: vi.fn().mockReturnValue(makeMindmapNode('node-2')),
+      addMindmapSibling: addSibling.mockReturnValue(makeMindmapNode('node-3')),
+      focusMindmapNode: focus,
       deleteMindmapNode: vi.fn(),
       undoMindmap: vi.fn(),
       redoMindmap: vi.fn(),
@@ -95,6 +102,7 @@ describe('mindmap-keyboard', () => {
 
     expect(handled).toBe(true);
     expect(addSibling).toHaveBeenCalledWith('node-1');
+    expect(focus).toHaveBeenCalledWith('node-3');
   });
 
   it('Delete removes selected mindmap node descendants through store action', () => {
@@ -106,8 +114,9 @@ describe('mindmap-keyboard', () => {
         makeMindmapNode('node-2', false),
       ],
       event: { key: 'Delete', preventDefault: vi.fn(), stopPropagation: vi.fn() },
-      addMindmapChild: vi.fn(),
-      addMindmapSibling: vi.fn(),
+      addMindmapChild: vi.fn().mockReturnValue(makeMindmapNode('node-3')),
+      addMindmapSibling: vi.fn().mockReturnValue(makeMindmapNode('node-4')),
+      focusMindmapNode: vi.fn(),
       deleteMindmapNode: deleteNode,
       undoMindmap: vi.fn(),
       redoMindmap: vi.fn(),
@@ -131,8 +140,9 @@ describe('mindmap-keyboard', () => {
         preventDefault: vi.fn(),
         stopPropagation: vi.fn(),
       },
-      addMindmapChild: vi.fn(),
-      addMindmapSibling: vi.fn(),
+      addMindmapChild: vi.fn().mockReturnValue(makeMindmapNode('node-2')),
+      addMindmapSibling: vi.fn().mockReturnValue(makeMindmapNode('node-3')),
+      focusMindmapNode: vi.fn(),
       deleteMindmapNode: vi.fn(),
       undoMindmap: undo,
       redoMindmap: redo,
@@ -148,8 +158,9 @@ describe('mindmap-keyboard', () => {
         preventDefault: vi.fn(),
         stopPropagation: vi.fn(),
       },
-      addMindmapChild: vi.fn(),
-      addMindmapSibling: vi.fn(),
+      addMindmapChild: vi.fn().mockReturnValue(makeMindmapNode('node-2')),
+      addMindmapSibling: vi.fn().mockReturnValue(makeMindmapNode('node-3')),
+      focusMindmapNode: vi.fn(),
       deleteMindmapNode: vi.fn(),
       undoMindmap: undo,
       redoMindmap: redo,

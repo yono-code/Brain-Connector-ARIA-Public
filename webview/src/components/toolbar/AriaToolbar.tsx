@@ -9,6 +9,7 @@ import {
   exportMindmapSvg,
   svgToPngDataUrl,
 } from '../mindmap/export/mindmap-export';
+import { MermaidImportDialog } from '../mindmap/MermaidImportDialog';
 
 interface AriaToolbarProps {
   activeTab: TabId;
@@ -35,9 +36,15 @@ export function AriaToolbar({
   const canRedoMindmap = useAriaStore((s) => s.canRedoMindmap);
   const snapEnabled = useAriaStore((s) => !!s.mindmapSettings.snapEnabled);
   const setMindmapSnapEnabled = useAriaStore((s) => s.setMindmapSnapEnabled);
+  const alignSurface = useAriaStore((s) => s.alignSurface);
+  const importMindmapMermaid = useAriaStore((s) => s.importMindmapMermaid);
   const [isExporting, setIsExporting] = useState(false);
+  const [showMermaidDialog, setShowMermaidDialog] = useState(false);
 
-  const addC4NodeOnCurrentLayer = (type: 'c4-container' | 'c4-component', label: string) => {
+  const addC4NodeOnCurrentLayer = (
+    type: 'c4-container' | 'c4-component' | 'c4-person' | 'c4-database' | 'c4-module',
+    label: string,
+  ) => {
     const state = useAriaStore.getState();
 
     if (currentLayer === 'container' && activeContainerId) {
@@ -52,7 +59,13 @@ export function AriaToolbar({
       return;
     }
 
-    const c4Nodes = state.nodes.filter((n) => n.type === 'c4-container' || n.type === 'c4-component');
+    const c4Nodes = state.nodes.filter((n) => (
+      n.type === 'c4-container' ||
+      n.type === 'c4-component' ||
+      n.type === 'c4-person' ||
+      n.type === 'c4-database' ||
+      n.type === 'c4-module'
+    ));
     const offset = c4Nodes.length * 40;
     addNode(type, { x: 200 + offset, y: 150 + offset }, label);
   };
@@ -65,11 +78,36 @@ export function AriaToolbar({
     addC4NodeOnCurrentLayer('c4-component', t('seed.component.new'));
   };
 
+  const handleAddPerson = () => {
+    addC4NodeOnCurrentLayer('c4-person', t('seed.person.new'));
+  };
+
+  const handleAddDatabase = () => {
+    addC4NodeOnCurrentLayer('c4-database', t('seed.database.new'));
+  };
+
+  const handleAddModule = () => {
+    addC4NodeOnCurrentLayer('c4-module', t('seed.module.new'));
+  };
+
   const handleAddMindmap = () => {
     const nodes = useAriaStore.getState().nodes;
     const mmNodes = nodes.filter((n) => n.type === 'mindmap');
     const offset = mmNodes.length * 40;
     addNode('mindmap', { x: 200 + offset, y: 150 + offset }, t('seed.node.mindmap'));
+  };
+
+  const handleAlign = () => {
+    if (activeTab === 'c4') {
+      const surface = currentLayer === 'container' && activeContainerId
+        ? { kind: 'c4-container', containerId: activeContainerId } as const
+        : { kind: 'c4-context' } as const;
+      alignSurface(surface);
+      return;
+    }
+    if (activeTab === 'mindmap') {
+      alignSurface({ kind: 'mindmap-root' });
+    }
   };
 
   const handleMindmapExport = async (format: 'markdown' | 'svg' | 'png') => {
@@ -182,6 +220,35 @@ export function AriaToolbar({
               </span>
             </>
           )}
+
+          <button
+            onClick={handleAddPerson}
+            title={t('wv.toolbar.title_add_person')}
+            style={secondaryButtonStyle(false)}
+          >
+            {t('wv.toolbar.add_person')}
+          </button>
+          <button
+            onClick={handleAddDatabase}
+            title={t('wv.toolbar.title_add_database')}
+            style={secondaryButtonStyle(false)}
+          >
+            {t('wv.toolbar.add_database')}
+          </button>
+          <button
+            onClick={handleAddModule}
+            title={t('wv.toolbar.title_add_module')}
+            style={secondaryButtonStyle(false)}
+          >
+            {t('wv.toolbar.add_module')}
+          </button>
+          <button
+            onClick={handleAlign}
+            title={t('wv.toolbar.title_align_surface')}
+            style={secondaryButtonStyle(false)}
+          >
+            {t('wv.toolbar.align_surface')}
+          </button>
         </>
       )}
 
@@ -224,6 +291,20 @@ export function AriaToolbar({
             title={t('wv.toolbar.title_snap')}
           >
             {snapEnabled ? t('wv.toolbar.snap_on') : t('wv.toolbar.snap_off')}
+          </button>
+          <button
+            onClick={() => setShowMermaidDialog(true)}
+            style={secondaryButtonStyle(false)}
+            title={t('wv.toolbar.title_mermaid_import')}
+          >
+            {t('wv.toolbar.mermaid_import')}
+          </button>
+          <button
+            onClick={handleAlign}
+            style={secondaryButtonStyle(false)}
+            title={t('wv.toolbar.title_align_surface')}
+          >
+            {t('wv.toolbar.align_surface')}
           </button>
           <button
             onClick={() => { void handleMindmapExport('markdown'); }}
@@ -306,6 +387,12 @@ export function AriaToolbar({
       }}>
         {t('wv.toolbar.shortcut_hint')}
       </span>
+
+      <MermaidImportDialog
+        open={showMermaidDialog}
+        onClose={() => setShowMermaidDialog(false)}
+        onImport={(source) => importMindmapMermaid(source)}
+      />
     </div>
   );
 }

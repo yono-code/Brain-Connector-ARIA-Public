@@ -23,11 +23,14 @@ export function KanbanBoard() {
   const tasksMap = useAriaStore((s) => s.tasks);
   const tasks = Object.values(tasksMap);
   const addTask = useAriaStore((s) => s.addTask);
+  const updateTaskStatus = useAriaStore((s) => s.updateTaskStatus);
 
   const [filterOld, setFilterOld] = useState(() => {
     const saved = localStorage.getItem('aria.kanban.hideOldDone');
     return saved !== 'false'; // デフォルトは true（非表示）
   });
+  const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
+  const [dragOverColumn, setDragOverColumn] = useState<TaskStatus | null>(null);
 
   useEffect(() => {
     localStorage.setItem('aria.kanban.hideOldDone', filterOld.toString());
@@ -45,7 +48,49 @@ export function KanbanBoard() {
       {COLUMNS.map((col) => {
         const colTasks = tasks.filter((t) => t.status === col.id && !shouldHideOldDoneTask(t, filterOld));
         return (
-          <div key={col.id} style={{ minWidth: 200, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div
+            key={col.id}
+            onDragOver={(event) => {
+              if (!draggingTaskId) return;
+              event.preventDefault();
+              event.dataTransfer.dropEffect = 'move';
+              setDragOverColumn(col.id);
+            }}
+            onDragLeave={() => {
+              if (dragOverColumn === col.id) {
+                setDragOverColumn(null);
+              }
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              const droppedTaskId =
+                event.dataTransfer.getData('text/task-id') || draggingTaskId;
+              if (!droppedTaskId) {
+                setDragOverColumn(null);
+                return;
+              }
+              const current = tasksMap[droppedTaskId];
+              if (current && current.status !== col.id) {
+                updateTaskStatus(droppedTaskId, col.id);
+              }
+              setDraggingTaskId(null);
+              setDragOverColumn(null);
+            }}
+            style={{
+              minWidth: 220,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+              borderRadius: 8,
+              padding: 6,
+              background: dragOverColumn === col.id
+                ? 'rgba(14, 99, 156, 0.12)'
+                : 'transparent',
+              outline: dragOverColumn === col.id
+                ? '1px dashed var(--vscode-focusBorder, #007acc)'
+                : 'none',
+            }}
+          >
             {/* カラムヘッダー */}
             <div style={{
               fontWeight: 'bold',
@@ -78,8 +123,30 @@ export function KanbanBoard() {
             {/* タスクカード一覧: Inbox 列は InboxCard、それ以外は KanbanCard */}
             {colTasks.map((task) =>
               col.id === 'Inbox'
-                ? <InboxCard key={task.id} task={task} />
-                : <KanbanCard key={task.id} task={task} />
+                ? (
+                  <InboxCard
+                    key={task.id}
+                    task={task}
+                    draggable
+                    onDragStart={(taskId) => setDraggingTaskId(taskId)}
+                    onDragEnd={() => {
+                      setDraggingTaskId(null);
+                      setDragOverColumn(null);
+                    }}
+                  />
+                )
+                : (
+                  <KanbanCard
+                    key={task.id}
+                    task={task}
+                    draggable
+                    onDragStart={(taskId) => setDraggingTaskId(taskId)}
+                    onDragEnd={() => {
+                      setDraggingTaskId(null);
+                      setDragOverColumn(null);
+                    }}
+                  />
+                )
             )}
 
             {/* Todo 列にのみタスク追加ボタンを表示する */}

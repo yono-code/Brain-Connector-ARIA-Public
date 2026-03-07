@@ -12,6 +12,8 @@ export function AdrPanel() {
   const nodesMap = useAriaStore((s) => s.nodes);
   const containerCanvases = useAriaStore((s) => s.containerCanvases);
   const updateADR = useAriaStore((s) => s.updateADR);
+  const selectedAdrId = useAriaStore((s) => s.selectedAdrId);
+  const setSelectedAdrId = useAriaStore((s) => s.setSelectedAdrId);
 
   const adrEntries = useMemo(
     () =>
@@ -24,10 +26,6 @@ export function AdrPanel() {
     [adrsMap, nodesMap, containerCanvases],
   );
 
-  const [selectedAdrId, setSelectedAdrId] = useState<string | null>(
-    adrEntries.length > 0 ? adrEntries[0].adr.id : null,
-  );
-
   useEffect(() => {
     if (adrEntries.length === 0) {
       setSelectedAdrId(null);
@@ -37,7 +35,7 @@ export function AdrPanel() {
     if (!hasSelected) {
       setSelectedAdrId(adrEntries[0].adr.id);
     }
-  }, [adrEntries, selectedAdrId]);
+  }, [adrEntries, selectedAdrId, setSelectedAdrId]);
 
   const selectedEntry = adrEntries.find((entry) => entry.adr.id === selectedAdrId) ?? null;
   const selectedAdr = selectedEntry?.adr ?? null;

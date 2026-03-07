@@ -18,8 +18,75 @@ interface C4NodeData {
   [key: string]: unknown;
 }
 
+type C4NodeType = Extract<
+  AriaNode['type'],
+  'c4-container' | 'c4-component' | 'c4-person' | 'c4-database' | 'c4-module'
+>;
+
+const C4_NODE_TYPES: readonly C4NodeType[] = [
+  'c4-container',
+  'c4-component',
+  'c4-person',
+  'c4-database',
+  'c4-module',
+];
+
+const C4_NODE_VISUALS: Record<C4NodeType, {
+  icon: string;
+  borderColor: string;
+  background: string;
+  borderRadius: number | string;
+}> = {
+  'c4-container': {
+    icon: '🧱',
+    borderColor: '#4ea1ff',
+    background: 'rgba(78, 161, 255, 0.08)',
+    borderRadius: 8,
+  },
+  'c4-component': {
+    icon: '🧩',
+    borderColor: '#4ec9b0',
+    background: 'rgba(78, 201, 176, 0.08)',
+    borderRadius: 8,
+  },
+  'c4-person': {
+    icon: '👤',
+    borderColor: '#c084fc',
+    background: 'rgba(192, 132, 252, 0.10)',
+    borderRadius: 8,
+  },
+  'c4-database': {
+    icon: '🛢',
+    borderColor: '#34d399',
+    background: 'rgba(52, 211, 153, 0.10)',
+    borderRadius: 12,
+  },
+  'c4-module': {
+    icon: '🧪',
+    borderColor: '#f59e0b',
+    background: 'rgba(245, 158, 11, 0.11)',
+    borderRadius: 999,
+  },
+};
+
+const SIDE_HANDLE_STYLE = {
+  width: 8,
+  height: 8,
+  border: 'none',
+  background: 'transparent',
+};
+
+function resolveC4Type(rawType: string | undefined): C4NodeType {
+  if (C4_NODE_TYPES.includes(rawType as C4NodeType)) {
+    return rawType as C4NodeType;
+  }
+  return 'c4-component';
+}
+
 export function C4ContainerNode({ id, data, selected, type }: NodeProps) {
   const d = data as C4NodeData;
+  const nodeType = resolveC4Type(type);
+  const visual = C4_NODE_VISUALS[nodeType];
   const deleteNode = useAriaStore((s) => s.deleteNode);
   const deleteContainerNode = useAriaStore((s) => s.deleteContainerNode);
   const addADR = useAriaStore((s) => s.addADR);
@@ -27,11 +94,20 @@ export function C4ContainerNode({ id, data, selected, type }: NodeProps) {
   const currentLayer = useAriaStore((s) => s.currentLayer);
   const activeContainerId = useAriaStore((s) => s.activeContainerId);
   const updateNodeData = useAriaStore((s) => s.updateNodeData);
+  const adrs = useAriaStore((s) => s.adrs);
+  const selectAdrByNodeId = useAriaStore((s) => s.selectAdrByNodeId);
   const { openContextMenu } = useContextMenu();
 
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(d.label);
   const [showDelete, setShowDelete] = useState(false);
+  const linkedAdr = Object.values(adrs).find((adr) => adr.linkedNodeId === id);
+  const adrDecisionPreview = linkedAdr?.decision
+    ? linkedAdr.decision.replace(/\s+/g, ' ').slice(0, 80)
+    : '';
+  const hoverPreview = linkedAdr
+    ? `対応ADR: ${linkedAdr.title}${adrDecisionPreview ? `\n${adrDecisionPreview}${linkedAdr.decision.length > 80 ? '…' : ''}` : ''}`
+    : undefined;
 
   const startEdit = () => {
     setEditValue(d.label);
@@ -64,18 +140,17 @@ export function C4ContainerNode({ id, data, selected, type }: NodeProps) {
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const safeType: AriaNode['type'] =
-      type === 'c4-container' ? 'c4-container'
-      : type === 'c4-component' ? 'c4-component'
-      : 'c4-component';
+    const safeType: AriaNode['type'] = nodeType;
 
     const items = buildC4ContextMenuItems({
       id,
       label: d.label,
       type: safeType,
       currentLayer,
+      hasLinkedAdr: !!linkedAdr,
       onStartEdit: startEdit,
       onAddAdr: addADR,
+      onOpenLinkedAdr: () => selectAdrByNodeId(id),
       onEnterContainerLayer: enterContainerLayer,
       onDelete: handleDelete,
     });
@@ -88,19 +163,53 @@ export function C4ContainerNode({ id, data, selected, type }: NodeProps) {
       onContextMenu={handleContextMenu}
       onMouseEnter={() => setShowDelete(true)}
       onMouseLeave={() => setShowDelete(false)}
+      title={hoverPreview}
       style={{
         position: 'relative',
         padding: 12,
-        borderRadius: 8,
+        borderRadius: visual.borderRadius,
         border: `2px solid ${selected
           ? 'var(--vscode-focusBorder, #007acc)'
-          : 'var(--vscode-panel-border, #454545)'}`,
-        background: 'var(--vscode-editor-background, #1e1e1e)',
+          : visual.borderColor}`,
+        background: visual.background,
         minWidth: 160,
         maxWidth: 240,
         cursor: 'pointer',
       }}
     >
+      {nodeType === 'c4-database' && (
+        <>
+          <div
+            style={{
+              position: 'absolute',
+              left: 12,
+              right: 12,
+              top: 4,
+              height: 10,
+              borderRadius: 999,
+              border: `2px solid ${visual.borderColor}`,
+              borderBottom: 'none',
+              opacity: 0.85,
+              pointerEvents: 'none',
+            }}
+          />
+          <div
+            style={{
+              position: 'absolute',
+              left: 12,
+              right: 12,
+              bottom: 4,
+              height: 10,
+              borderRadius: 999,
+              border: `2px solid ${visual.borderColor}`,
+              borderTop: 'none',
+              opacity: 0.65,
+              pointerEvents: 'none',
+            }}
+          />
+        </>
+      )}
+
       {/* 削除ボタン（ホバー時表示） */}
       {showDelete && !isEditing && (
         <button
@@ -130,7 +239,9 @@ export function C4ContainerNode({ id, data, selected, type }: NodeProps) {
         </button>
       )}
 
-      <Handle type="target" position={Position.Top} />
+      <Handle id="c4-in-left" type="target" position={Position.Top} style={{ ...SIDE_HANDLE_STYLE, left: '30%' }} />
+      <Handle id="c4-in-center" type="target" position={Position.Top} />
+      <Handle id="c4-in-right" type="target" position={Position.Top} style={{ ...SIDE_HANDLE_STYLE, left: '70%' }} />
 
       {/* ラベル: 編集中 / 表示切替 */}
       {isEditing ? (
@@ -163,13 +274,17 @@ export function C4ContainerNode({ id, data, selected, type }: NodeProps) {
           onDoubleClick={startEdit}
           title="ダブルクリックで編集 / 右クリックでメニュー"
           style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
             fontWeight: 'bold',
             color: 'var(--vscode-editor-foreground, #d4d4d4)',
             fontSize: 13,
             cursor: 'text',
           }}
         >
-          {d.label}
+          <span style={{ fontSize: 14, lineHeight: 1 }}>{visual.icon}</span>
+          <span>{d.label}</span>
         </div>
       )}
 
@@ -190,7 +305,9 @@ export function C4ContainerNode({ id, data, selected, type }: NodeProps) {
         </div>
       )}
 
-      <Handle type="source" position={Position.Bottom} />
+      <Handle id="c4-out-left" type="source" position={Position.Bottom} style={{ ...SIDE_HANDLE_STYLE, left: '30%' }} />
+      <Handle id="c4-out-center" type="source" position={Position.Bottom} />
+      <Handle id="c4-out-right" type="source" position={Position.Bottom} style={{ ...SIDE_HANDLE_STYLE, left: '70%' }} />
     </div>
   );
 }

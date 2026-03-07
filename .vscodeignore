@@ -53,6 +53,8 @@ assets/README.md
 node_modules/
 .git/
 .gitignore
+.ai-context/
+.cursorrules
 *.vsix
 **/*.map
 extglob

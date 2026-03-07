@@ -2,7 +2,7 @@
 // KanbanCard.tsx — カンバンカード（削除UI・右クリックメニュー対応）
 // ============================================================
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { KanbanTask, TaskStatus } from '../../../../src/shared/types';
 import { useAriaStore } from '../../store/aria-store';
 import { useContextMenu } from '../context-menu/ContextMenu';
@@ -10,24 +10,49 @@ import { isDueDateOverdue } from './task-date-utils';
 
 interface KanbanCardProps {
   task: KanbanTask;
+  draggable?: boolean;
+  onDragStart?: (taskId: string) => void;
+  onDragEnd?: () => void;
 }
 
 const STATUS_OPTIONS: TaskStatus[] = ['Inbox', 'Todo', 'In Progress', 'Done'];
 
-export function KanbanCard({ task }: KanbanCardProps) {
+export function KanbanCard({
+  task,
+  draggable = false,
+  onDragStart,
+  onDragEnd,
+}: KanbanCardProps) {
   const updateTaskStatus = useAriaStore((s) => s.updateTaskStatus);
   const updateTask = useAriaStore((s) => s.updateTask);
   const deleteTask = useAriaStore((s) => s.deleteTask);
+  const nodes = useAriaStore((s) => s.nodes);
+  const containerCanvases = useAriaStore((s) => s.containerCanvases);
   const { openContextMenu } = useContextMenu();
 
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(task.title);
+  const [editNote, setEditNote] = useState(task.note ?? '');
   const [editStartDate, setEditStartDate] = useState(task.startDate ?? '');
   const [editDueDate, setEditDueDate] = useState(task.dueDate ?? '');
   const [showDelete, setShowDelete] = useState(false);
+  const linkedNodeLabels = useMemo(() => task.linkedNodeIds.map((nodeId) => {
+    const rootNode = nodes.find((node) => node.id === nodeId);
+    if (rootNode) {
+      return rootNode.data.label;
+    }
+    for (const canvas of Object.values(containerCanvases)) {
+      const node = canvas.nodes.find((item) => item.id === nodeId);
+      if (node) {
+        return node.data.label;
+      }
+    }
+    return '不明なノード';
+  }), [containerCanvases, nodes, task.linkedNodeIds]);
 
   const startEdit = () => {
     setEditValue(task.title);
+    setEditNote(task.note ?? '');
     setEditStartDate(task.startDate ?? '');
     setEditDueDate(task.dueDate ?? '');
     setIsEditing(true);
@@ -37,17 +62,20 @@ export function KanbanCard({ task }: KanbanCardProps) {
     setIsEditing(false);
     const trimmed = editValue.trim();
     const nextTitle = trimmed || task.title;
+    const nextNote = editNote.trim() ? editNote : undefined;
     const nextStartDate = editStartDate || undefined;
     const nextDueDate = editDueDate || undefined;
 
     const hasChanges =
       nextTitle !== task.title ||
+      nextNote !== task.note ||
       nextStartDate !== task.startDate ||
       nextDueDate !== task.dueDate;
 
     if (hasChanges) {
       updateTask(task.id, {
         title: nextTitle,
+        note: nextNote,
         startDate: nextStartDate,
         dueDate: nextDueDate,
       });
@@ -56,6 +84,7 @@ export function KanbanCard({ task }: KanbanCardProps) {
 
   const cancelEdit = () => {
     setEditValue(task.title);
+    setEditNote(task.note ?? '');
     setEditStartDate(task.startDate ?? '');
     setEditDueDate(task.dueDate ?? '');
     setIsEditing(false);
@@ -80,6 +109,13 @@ export function KanbanCard({ task }: KanbanCardProps) {
 
   return (
     <div
+      draggable={draggable && !isEditing}
+      onDragStart={(event) => {
+        event.dataTransfer.setData('text/task-id', task.id);
+        event.dataTransfer.effectAllowed = 'move';
+        onDragStart?.(task.id);
+      }}
+      onDragEnd={() => onDragEnd?.()}
       onContextMenu={handleContextMenu}
       onMouseEnter={() => setShowDelete(true)}
       onMouseLeave={() => setShowDelete(false)}
@@ -192,6 +228,41 @@ export function KanbanCard({ task }: KanbanCardProps) {
               />
             </label>
           </div>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 6 }}>
+            <span style={{ fontSize: 10, color: 'var(--vscode-descriptionForeground, #9d9d9d)' }}>メモ</span>
+            <textarea
+              aria-label="メモ"
+              value={editNote}
+              onChange={(e) => setEditNote(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
+              }}
+              style={{
+                fontSize: 11,
+                minHeight: 54,
+                resize: 'vertical',
+                background: 'var(--vscode-input-background, #3c3c3c)',
+                color: 'var(--vscode-input-foreground, #d4d4d4)',
+                border: '1px solid var(--vscode-dropdown-border, #454545)',
+                borderRadius: 3,
+                padding: '4px 6px',
+                width: '100%',
+              }}
+            />
+          </label>
+          <div
+            style={{
+              marginBottom: 6,
+              fontSize: 10,
+              color: 'var(--vscode-descriptionForeground, #9d9d9d)',
+              lineHeight: 1.45,
+            }}
+          >
+            <div style={{ marginBottom: 2 }}>関連ノード</div>
+            <div style={{ color: 'var(--vscode-editor-foreground, #d4d4d4)' }}>
+              {linkedNodeLabels.length > 0 ? linkedNodeLabels.join(', ') : 'なし'}
+            </div>
+          </div>
           <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
             <button
               onClick={commitEdit}
@@ -252,6 +323,27 @@ export function KanbanCard({ task }: KanbanCardProps) {
               {task.dueDate}
             </span>
           )}
+        </div>
+      )}
+
+      {!isEditing && task.note && (
+        <div
+          title={task.note}
+          style={{
+            fontSize: 11,
+            lineHeight: 1.4,
+            marginBottom: 6,
+            color: 'var(--vscode-editor-foreground, #d4d4d4)',
+            background: 'rgba(127,127,127,0.12)',
+            border: '1px solid var(--vscode-panel-border, #454545)',
+            borderRadius: 4,
+            padding: '4px 6px',
+            whiteSpace: 'pre-wrap',
+            maxHeight: 88,
+            overflow: 'auto',
+          }}
+        >
+          📝 {task.note}
         </div>
       )}
 

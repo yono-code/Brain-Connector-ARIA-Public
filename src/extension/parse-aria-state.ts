@@ -8,6 +8,7 @@
 // ============================================================
 
 import {
+  AriaEdge,
   AriaNode,
   AriaState,
   ContainerCanvas,
@@ -34,6 +35,12 @@ const TASK_ID_PATTERN = /^task-[a-f0-9]{8}$/;
 const ADR_ID_PATTERN = /^adr-[a-f0-9]{8}$/;
 const YMD_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const HEX_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
+const EDGE_VARIANTS = new Set<NonNullable<AriaEdge['variant']>>([
+  'single-forward',
+  'single-reverse',
+  'double-headed',
+  'double-parallel',
+]);
 
 // --- 型定義 ---
 
@@ -117,6 +124,7 @@ export function parseAriaState(rawJson: string): ParseResult {
   // ADR の sanitize（不正 ID を再採番）
   const sanitizedAdrs = sanitizeAdrs(raw.adrs as Record<string, unknown>);
   const sanitizedNodes = sanitizeNodes(raw.nodes as unknown[]);
+  const sanitizedEdges = sanitizeEdges(raw.edges as unknown[]);
   const sanitizedContainerCanvases = sanitizeContainerCanvases(raw.containerCanvases);
   const mindmapBoundaries = sanitizeMindmapBoundaries(raw.mindmapBoundaries);
   const mindmapSettings = sanitizeMindmapSettings(raw.mindmapSettings);
@@ -125,7 +133,7 @@ export function parseAriaState(rawJson: string): ParseResult {
   // nodes / edges はMVPでは配列存在確認のみ（詳細バリデーションはM6以降で強化）
   const state: AriaState = {
     nodes: sanitizedNodes,
-    edges: raw.edges as AriaState['edges'],
+    edges: sanitizedEdges,
     tasks: sanitizedTasks,
     adrs: sanitizedAdrs,
     containerCanvases: sanitizedContainerCanvases,
@@ -182,6 +190,10 @@ function sanitizeTasks(
     // 日付フィールド (startDate / dueDate) の sanitize
     const startDate = sanitizeTaskDate(rawTask.startDate, 'startDate', key);
     const dueDate = sanitizeTaskDate(rawTask.dueDate, 'dueDate', key);
+    const note =
+      typeof rawTask.note === 'string' && rawTask.note.trim()
+        ? rawTask.note
+        : undefined;
 
     // タスクIDのバリデーション
     // Record のキーを正として使用する（内部 id フィールドとの不一致は上書き）
@@ -199,6 +211,7 @@ function sanitizeTasks(
         status: 'Inbox',
         title,
         linkedNodeIds,
+        note,
         createdAt,
         updatedAt: now, // 隔離時刻を updatedAt に記録する
         startDate,
@@ -222,6 +235,7 @@ function sanitizeTasks(
         status: 'Inbox',
         title,
         linkedNodeIds,
+        note,
         createdAt,
         updatedAt: now,
         startDate,
@@ -237,6 +251,7 @@ function sanitizeTasks(
       status: rawStatus as TaskStatus,
       title,
       linkedNodeIds,
+      note,
       createdAt,
       updatedAt,
       startDate,
@@ -323,7 +338,7 @@ function sanitizeContainerCanvases(
       ? sanitizeNodes(rawCanvas.nodes as unknown[])
       : [];
     const edges = Array.isArray(rawCanvas.edges)
-      ? (rawCanvas.edges as AriaState['edges'])
+      ? sanitizeEdges(rawCanvas.edges as unknown[])
       : [];
 
     result[containerId] = {
@@ -332,6 +347,59 @@ function sanitizeContainerCanvases(
       nodes,
       edges,
     };
+  }
+
+  return result;
+}
+
+function sanitizeEdges(rawEdges: unknown[]): AriaEdge[] {
+  const result: AriaEdge[] = [];
+
+  for (const rawEdge of rawEdges) {
+    if (!isPlainObject(rawEdge)) {
+      continue;
+    }
+
+    const edge = rawEdge as Record<string, unknown>;
+    if (
+      typeof edge.id !== 'string' ||
+      typeof edge.source !== 'string' ||
+      typeof edge.target !== 'string'
+    ) {
+      continue;
+    }
+
+    const variant = (
+      typeof edge.variant === 'string' && EDGE_VARIANTS.has(edge.variant as NonNullable<AriaEdge['variant']>)
+    )
+      ? edge.variant as NonNullable<AriaEdge['variant']>
+      : 'single-forward';
+    const label = typeof edge.label === 'string' && edge.label.trim()
+      ? edge.label
+      : undefined;
+    const sourceLabel = typeof edge.sourceLabel === 'string' && edge.sourceLabel.trim()
+      ? edge.sourceLabel
+      : undefined;
+    const targetLabel = typeof edge.targetLabel === 'string' && edge.targetLabel.trim()
+      ? edge.targetLabel
+      : undefined;
+
+    const nextEdge: AriaEdge = {
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
+      variant,
+    };
+    if (label) {
+      nextEdge.label = label;
+    }
+    if (sourceLabel) {
+      nextEdge.sourceLabel = sourceLabel;
+    }
+    if (targetLabel) {
+      nextEdge.targetLabel = targetLabel;
+    }
+    result.push(nextEdge);
   }
 
   return result;
@@ -350,7 +418,12 @@ function sanitizeNodes(rawNodes: unknown[]): AriaNode[] {
     }
 
     const type =
-      node.type === 'c4-container' || node.type === 'c4-component' || node.type === 'mindmap'
+      node.type === 'c4-container' ||
+      node.type === 'c4-component' ||
+      node.type === 'c4-person' ||
+      node.type === 'c4-database' ||
+      node.type === 'c4-module' ||
+      node.type === 'mindmap'
         ? node.type
         : 'mindmap';
     const position = isPlainObject(node.position)

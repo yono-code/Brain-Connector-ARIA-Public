@@ -13,7 +13,13 @@ interface TabBarProps {
   onChange: (tab: TabId) => void;
 }
 
-const C4_TYPES = ['c4-container', 'c4-component'];
+const C4_TYPES: string[] = [
+  'c4-container',
+  'c4-component',
+  'c4-person',
+  'c4-database',
+  'c4-module',
+];
 
 export function TabBar({ activeTab, onChange }: TabBarProps) {
   const { t } = useI18n();

@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.2] — 2026-03-07
+
+### Fixed
+
+- C4 の双方向/2本双方向ライン描画を見やすく改善（動的オフセットで重なりを緩和）
+- C4 ラベル表示を動的座標補正し、双方向ライン時の重なりを緩和
+- セマンティックネットワークのメモマーク（🗒️）hoverで実メモ内容を表示
+
+---
+
+## [0.2.1] — 2026-03-07
+
+### Fixed
+
+- ARIA パネルが空白になるケースを修正（Canvas の store 購読方法を安定化）
+
+---
+
+## [0.2.0] — 2026-03-07
+
+### Added
+
+- C4/Container 用の自動整列 (`dagre`) と、セマンティックネットワーク整列の共通実行導線
+- 整列ショートカット `Ctrl/Cmd+Shift+L`（C4/セマンティックネットワーク共通）
+- C4 ライン編集UI（種別: 片方向/逆方向/両端/2本双方向、ラベル編集、手動削除）
+- C4/セマンティックネットワーク両方のライン右クリック削除導線
+- C4 ノード右クリックから「対応 ADR を開く」導線
+- VS Code Activity Bar から起動できる ARIA サイドバー導線
+- AI JSON編集向け edge サニタイズ/リコンシリエーション/mermaid生成の variant 対応テスト
+
+### Changed
+
+- `AriaEdge` に `variant` / `sourceLabel` / `targetLabel` を追加
+- `aria-store` に `updateEdge` / `deleteEdge` / `alignSurface` / `alignCurrentSurface` / `selectAdrByNodeId` を追加
+- Canvas の surface 購読方式を修正し、Container layer のノード追加・接続・ドラッグ反映を即時化
+- Task 編集フォームに「関連ノード」表示を追加
+- README を日本語先頭・英語後半の構成へ再編
+
+---
+
+## [0.1.3] — 2026-03-04
+
+### Fixed
+
+- Mermaid import dialog now opens with an empty input field by default.
+
+---
+
+## [0.1.2] — 2026-03-04
+
+### Fixed
+
+- Mindmap `Align Tree` now anchors layout on the top-most root node instead of selected descendants.
+- Sibling nodes in the same generation are aligned vertically in the same column.
+- Descendants are laid out farther from the root by generation depth for a standard rooted-tree arrangement.
+
+---
+
 ## [0.1.0] — 2026-02-25
 
 ### Initial Release (Phase 1 MVP)

@@ -2,7 +2,7 @@
   "name": "aria-vscode",
   "displayName": "Brain Connector ARIA",
   "description": "Automatically generate AI-ready context (Markdown/Mermaid) just by managing your project in the GUI.",
-  "version": "0.1.0",
+  "version": "0.2.2",
   "publisher": "yonogames",
   "license": "Apache-2.0",
   "engines": {
@@ -34,9 +34,33 @@
     "type": "git",
     "url": "https://github.com/yono-code/Brain-Connector-ARIA-Public.git"
   },
-  "activationEvents": [],
+  "activationEvents": [
+    "onCommand:aria.openPanel",
+    "onCommand:aria.openRuleGuide",
+    "onCommand:aria.addTask",
+    "onCommand:aria.syncNow",
+    "onCommand:aria.revokeConsent",
+    "onView:aria.launchView"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "ariaSidebar",
+          "title": "ARIA",
+          "icon": "assets/aria-activity-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "ariaSidebar": [
+        {
+          "id": "aria.launchView",
+          "name": "Brain Connector ARIA"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "aria.openPanel",
@@ -122,13 +146,14 @@
     "dependency:gate": "node scripts/check-dependency-gate.cjs",
     "no-network:guard": "node scripts/check-no-network-code.cjs",
     "dependency:sbom": "node scripts/generate-sbom.cjs",
-    "dependency:review": "node scripts/generate-dependency-review.cjs"
+    "dependency:review": "node scripts/generate-dependency-review.cjs",
+    "portfolio:build-core-docs": "node scripts/build-ai-shared-core.cjs"
   },
   "devDependencies": {
-    "@types/node": "^25.3.3",
+    "@types/node": "^20.0.0",
     "@types/vscode": "^1.85.0",
     "concurrently": "^9.0.0",
-    "esbuild": "^0.27.3",
+    "esbuild": "^0.25.0",
     "typescript": "^5.0.0",
     "vitest": "^4.0.18"
   }

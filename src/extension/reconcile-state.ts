@@ -15,7 +15,7 @@
 //
 // ============================================================
 
-import { AriaState, AriaNode } from '../shared/types';
+import { AriaState, AriaNode, AriaEdge } from '../shared/types';
 
 export interface ReconcileOptions {
   preserveNodePositions?: boolean;
@@ -68,11 +68,58 @@ export function reconcileState(
     ...incoming,
     // ノードは Reconciliation 済みのものを使用する
     nodes: reconciledNodes,
+    // 同一 edge ID の optional 拡張フィールドは current から補完する
+    edges: mergeEdgesPreservingOptionalFields(incoming.edges, current.edges),
     // M9: コンテナキャンバスは incoming を優先（欠如時は空にフォールバック）
-    containerCanvases: incoming.containerCanvases ?? {},
+    containerCanvases: mergeContainerCanvases(
+      incoming.containerCanvases ?? {},
+      current.containerCanvases ?? {},
+    ),
     mindmapBoundaries: incoming.mindmapBoundaries ?? {},
     mindmapSettings: incoming.mindmapSettings ?? { snapEnabled: true },
     // lastModified は Reconciliation 実行時刻を記録する
     lastModified: new Date().toISOString(),
   };
+}
+
+function mergeContainerCanvases(
+  incomingCanvases: AriaState['containerCanvases'],
+  currentCanvases: AriaState['containerCanvases'],
+): AriaState['containerCanvases'] {
+  const result: AriaState['containerCanvases'] = {};
+
+  for (const [containerId, incomingCanvas] of Object.entries(incomingCanvases)) {
+    const currentCanvas = currentCanvases[containerId];
+    result[containerId] = {
+      ...incomingCanvas,
+      edges: mergeEdgesPreservingOptionalFields(
+        incomingCanvas.edges,
+        currentCanvas?.edges ?? [],
+      ),
+    };
+  }
+
+  return result;
+}
+
+function mergeEdgesPreservingOptionalFields(
+  incomingEdges: AriaEdge[],
+  currentEdges: AriaEdge[],
+): AriaEdge[] {
+  const currentById = new Map(currentEdges.map((edge) => [edge.id, edge]));
+
+  return incomingEdges.map((edge) => {
+    const current = currentById.get(edge.id);
+    if (!current) {
+      return edge;
+    }
+
+    return {
+      ...current,
+      ...edge,
+      variant: edge.variant ?? current.variant,
+      sourceLabel: edge.sourceLabel ?? current.sourceLabel,
+      targetLabel: edge.targetLabel ?? current.targetLabel,
+    };
+  });
 }

@@ -163,6 +163,7 @@ export function MindmapNode({ id, data, selected, positionAbsoluteX, positionAbs
         onContextMenu={handleContextMenu}
         onMouseEnter={() => setShowDelete(true)}
         onMouseLeave={() => setShowDelete(false)}
+        title={d.note ? `メモ: ${d.note}` : undefined}
         style={{
           position: 'relative',
           padding: `${styleToken.paddingY}px ${styleToken.paddingX}px`,
@@ -259,7 +260,7 @@ export function MindmapNode({ id, data, selected, positionAbsoluteX, positionAbs
           </span>
         )}
 
-        {d.note && <span title="メモあり">🗒️</span>}
+        {d.note && <span title={`メモ: ${d.note}`}>🗒️</span>}
         {d.collapsed && hasChildren && <span title="折りたたみ中">▶</span>}
 
         <Handle type="source" position={Position.Right} />

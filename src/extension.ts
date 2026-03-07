@@ -47,6 +47,28 @@ let activeWorkspacePath: string | null = null;
 let extensionContextRef: vscode.ExtensionContext | null = null;
 let openRuleGuideOnWebviewReady = false;
 
+class AriaLaunchTreeItem extends vscode.TreeItem {
+  constructor() {
+    super('Open Brain Connector ARIA', vscode.TreeItemCollapsibleState.None);
+    this.command = {
+      command: 'aria.openPanel',
+      title: 'Open Brain Connector ARIA',
+    };
+    this.iconPath = new vscode.ThemeIcon('rocket');
+    this.contextValue = 'ariaLaunchItem';
+  }
+}
+
+class AriaLaunchViewProvider implements vscode.TreeDataProvider<AriaLaunchTreeItem> {
+  getTreeItem(element: AriaLaunchTreeItem): vscode.TreeItem {
+    return element;
+  }
+
+  getChildren(): AriaLaunchTreeItem[] {
+    return [new AriaLaunchTreeItem()];
+  }
+}
+
 export async function activate(context: vscode.ExtensionContext) {
   extensionContextRef = context;
   console.log('[ARIA] activate() 開始');
@@ -101,6 +123,10 @@ export async function activate(context: vscode.ExtensionContext) {
           );
         }
       }),
+    );
+
+    context.subscriptions.push(
+      vscode.window.registerTreeDataProvider('aria.launchView', new AriaLaunchViewProvider()),
     );
 
     context.subscriptions.push(

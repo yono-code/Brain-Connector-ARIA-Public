@@ -14,8 +14,9 @@ export interface MindmapShortcutContext {
   canvasType: 'c4' | 'mindmap';
   nodes: AriaNode[];
   event: MindmapShortcutEvent;
-  addMindmapChild: (nodeId: string) => void;
-  addMindmapSibling: (nodeId: string) => void;
+  addMindmapChild: (nodeId: string) => AriaNode;
+  addMindmapSibling: (nodeId: string) => AriaNode | null;
+  focusMindmapNode: (nodeId: string) => void;
   deleteMindmapNode: (nodeId: string) => void;
   undoMindmap: () => void;
   redoMindmap: () => void;
@@ -57,12 +58,20 @@ export function handleMindmapShortcut(ctx: MindmapShortcutContext): boolean {
     case 'Tab':
       ctx.event.preventDefault();
       ctx.event.stopPropagation();
-      ctx.addMindmapChild(selectedMindmapNode.id);
+      {
+        const created = ctx.addMindmapChild(selectedMindmapNode.id);
+        ctx.focusMindmapNode(created.id);
+      }
       return true;
     case 'Enter':
       ctx.event.preventDefault();
       ctx.event.stopPropagation();
-      ctx.addMindmapSibling(selectedMindmapNode.id);
+      {
+        const created = ctx.addMindmapSibling(selectedMindmapNode.id);
+        if (created) {
+          ctx.focusMindmapNode(created.id);
+        }
+      }
       return true;
     case 'Delete':
     case 'Backspace':

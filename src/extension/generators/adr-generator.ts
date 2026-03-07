@@ -14,7 +14,13 @@ interface NodeLayerInfo {
 }
 
 function isC4NodeType(type: string): boolean {
-  return type === 'c4-container' || type === 'c4-component';
+  return (
+    type === 'c4-container' ||
+    type === 'c4-component' ||
+    type === 'c4-person' ||
+    type === 'c4-database' ||
+    type === 'c4-module'
+  );
 }
 
 // ADR ファイルを adr/ ディレクトリに生成する
